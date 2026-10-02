@@ -11,51 +11,54 @@ What must survive between sessions: the `runs/school/` folder (model + progress)
 
 ## Kaggle
 
-### One-time setup
+### Setup (every new session)
 1. kaggle.com -> **Code -> New Notebook**.
-2. Right panel -> **Session options**: **Accelerator = GPU T4 x2 / P100**, **Internet = On** (needs a phone-verified account).
-3. Put this project in the notebook. Easiest: first cell
+2. Right panel -> **Session options**: **Accelerator = GPU (T4 x2 / P100)** and **Internet = On** (needs a phone-verified account).
+3. **Cell 1: get the code** (works the first time and every time after; the repo is public):
    ```python
-   !git clone -b claude/progressive-model-training-gates-33mehr https://github.com/ajitpanday80/ai-child-toddler /kaggle/working/school_repo
+   %cd /kaggle/working
+   import os
+   if os.path.isdir("school_repo/.git"):
+       !git -C school_repo pull origin claude/progressive-model-training-gates-33mehr
+   else:
+       !rm -rf school_repo
+       !git clone -b claude/progressive-model-training-gates-33mehr https://github.com/ajitpanday80/ai-child-toddler school_repo
    %cd /kaggle/working/school_repo
    !pip -q install pypdf
+   !ls
    ```
-   (PyTorch is already installed on Kaggle.)
+   `!ls` should show `content  KAGGLE_COLAB.md  README.md  school  tests`. (PyTorch is already installed on Kaggle.)
+   - Always `%cd /kaggle/working` *before* deleting `school_repo`; deleting the folder you are standing in breaks every later command (`getcwd` errors). If that happens: **Run -> Restart session**, then run Cell 1 again.
+   - If the clone asks for a GitHub username, the repo is private: make it public (GitHub -> Settings -> General -> Change visibility). Or use a read-only token kept in **Add-ons -> Secrets** (`GITHUB_TOKEN`) and clone with `https://{tok}@github.com/...`, then run `!git -C school_repo remote set-url origin https://github.com/ajitpanday80/ai-child-toddler`. Never paste the token in chat.
+4. *(Optional)* your own material: create a Kaggle **Dataset** containing a `content/` folder (`grade1/`, `grade2/`, ... with PDFs, `.txt`, `links.txt`), then **Add Input**. It appears at `/kaggle/input/<dataset-name>/content`.
 
-   **If the repo is private**, the clone asks for a GitHub username and hangs. Either make the repo public
-   (GitHub -> Settings -> General -> Change visibility), or use a read-only token kept in a secret:
-   create a fine-grained token (this repo only, *Contents: Read-only*), add it in Kaggle under **Add-ons -> Secrets** as `GITHUB_TOKEN` (Colab: the key icon, name `GITHUB_TOKEN`), then:
-   ```python
-   from kaggle_secrets import UserSecretsClient          # Colab: from google.colab import userdata; tok = userdata.get('GITHUB_TOKEN')
-   tok = UserSecretsClient().get_secret("GITHUB_TOKEN")
-   !git clone -b claude/progressive-model-training-gates-33mehr https://{tok}@github.com/ajitpanday80/ai-child-toddler /kaggle/working/school_repo
-   !git -C /kaggle/working/school_repo remote set-url origin https://github.com/ajitpanday80/ai-child-toddler
-   ```
-   (The second line removes the token from the saved git config. Keep the notebook private and never paste the token in chat or code.)
-4. *(Optional)* your own material: create a Kaggle **Dataset** containing a `content/` folder (`grade1/`, `grade2/`, ... with PDFs, `.txt`, `links.txt`), then **Add Input** to the notebook. It appears at `/kaggle/input/<dataset-name>/content`.
-
-### Run a part (every session)
-Run this in a cell. Use the Python call, **not** `!python ...`: a notebook cell can ask you questions, a `!` shell command cannot.
+### Run a part
+**Cell 2: first session**
+```python
+OUT = "/kaggle/working/runs/school"
+from school.train import main
+main(["--out", OUT, "--part-minutes", "60", "--size", "small"])
+# own material? add:  "--content", "/kaggle/input/<dataset-name>/content"
+```
+**Later sessions: resume** (after adding last session's saved output as an Input, see below)
 ```python
 import os, shutil
 OUT = "/kaggle/working/runs/school"
-
-# --- resume: copy the progress saved by the previous session (see "Carrying progress over" below)
-PREV = "/kaggle/input/ai-child-progress/runs/school"     # <- the input you added, if any
+PREV = "/kaggle/input/<your-notebook-or-dataset-name>/runs/school"
 if os.path.exists(PREV) and not os.path.exists(OUT):
     shutil.copytree(PREV, OUT)
-
 from school.train import main
-main(["--out", OUT,
-      "--content", "/kaggle/input/my-content/content",   # remove this line if you have no own content
-      "--part-minutes", "60",
-      "--size", "small"])                                 # small (~5M params). 'base' (~14M) learns more but is slower.
+main(["--out", OUT, "--part-minutes", "60"])
 ```
-Watch the log: each `exam` line shows scores per subject. When a stage is passed you'll see
-`Move on to Grade 2 (...)? [y/n]` -> type `y` or `n` in the box under the cell.
-After 60 minutes: `Continue with the next part? [y/n]`.
+(Find the exact path with `!ls /kaggle/input`.) Use the Python call, **not** `!python ...`: a notebook cell can ask you questions, a `!` command cannot.
 
-Check where you are any time: `main(["--out", OUT, "--status"])`
+What you'll see:
+- It prints the model size and `on cuda` (if it says `on cpu`, the GPU is not switched on).
+- One `exam` line per 400 steps: `words[...]` = score per subject, `moral=`, `emotion=`, `judgment=`. About 25% is chance level for the 4-choice exams.
+- On a pass: `*** Values PASSED ***` and `Move on to ...? [y/n]` -> type the answer in the box under the cell.
+- After 60 minutes: `Continue with the next part? [y/n]`. `n` saves and stops (then stop the session to save quota).
+
+Check progress any time: `main(["--out", OUT, "--status"])`
 
 ### Carrying progress over (Kaggle forgets `/kaggle/working` unless you save a version)
 - At the end of a session click **Save Version -> Save & Run All (Commit)** (or *Quick Save*). The notebook's `/kaggle/working/runs` becomes that version's **Output**.
