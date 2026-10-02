@@ -1,15 +1,20 @@
-"""Ask a trained checkpoint a question:  python -m school.ask runs/school/latest.pt "27+45="  """
-import sys
+"""Let the model write:  python -m school.ask "Once upon a time" [--n 300]
+   Use --ckpt runs/school/passed_0_Values.pt to hear the model as it was when it passed that stage."""
+import argparse
 
 import torch
 
-from .curriculum import STOI, encode, decode
+from .exams import decode, encode
 from .model import GPT, ModelConfig
 
-d = torch.load(sys.argv[1])
-model = GPT(ModelConfig(**d["cfg"]))
-model.load_state_dict(d["model"])
-model.eval()
-for q in sys.argv[2:]:
-    out = model.generate(torch.tensor([encode(q)]), STOI["\n"], 12)
-    print(q, decode(out[0, len(q):].tolist()).split("\n")[0])
+ap = argparse.ArgumentParser()
+ap.add_argument("prompt")
+ap.add_argument("--ckpt", default="runs/school/latest.pt")
+ap.add_argument("--n", type=int, default=300)
+ap.add_argument("--temperature", type=float, default=0.8)
+a = ap.parse_args()
+ck = torch.load(a.ckpt)
+model = GPT(ModelConfig(**ck["cfg"]) if "cfg" in ck else ModelConfig(vocab_size=128))
+model.load_state_dict(ck.get("model", ck))
+out = model.sample(torch.tensor([encode(a.prompt)]), a.n, a.temperature)
+print(decode(out[0].tolist()))

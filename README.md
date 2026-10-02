@@ -1,29 +1,51 @@
-# AI-child-Toddler — a model that goes to school
+# AI-child-Toddler: a model that grows up in school
 
-A small GPT (≈0.8M params) trained **from scratch** (random weights, no pretrained model) under a
-strict grade system: it only moves up a grade after passing an exam.
+A GPT-style model (own weights, random start, no pretrained model) that is raised like a child:
+**Values -> Pre-Nursery -> Nursery -> Grade 1 ... Grade 6** (extendable to adulthood).
+It may only move up after passing an exam, and **you** decide whether it moves up.
 
 ```
-train N steps → exam → passed? → next grade
-                     ↘ no → keep studying (up to --max-attempts, then the run halts: "held back")
+study a lesson -> exam -> passed? -> "Move on to Grade 2? [y/n]"
+                                      y: next grade     n: stop (run again later -> asked again)
+every 60 min: part ends -> saved -> "Continue with the next part? [y/n]"   (built for Kaggle / Colab)
 ```
 
-## Rules of the school
-- **Pass mark**: ≥95% exact-match on the grade's exam (`Grade.pass_mark`).
-- **No forgetting**: the same exam also re-tests *every earlier grade* at ≥90% (`review_mark`). Lessons also mix in old material (`--review-frac`).
-- **Held-out exams**: 20% of questions are hash-reserved for exams and never used in lessons, so a pass means generalisation, not memorisation. (Grade 4, 100 addition "facts", is the exception: `holdout=False`.)
-- **Resumable**: state saved after every exam (`runs/school/latest.pt`); a snapshot is kept for each passed grade (`gradeN_passed.pt`). `report_card.json` logs every exam.
+## What it learns in every grade (all subjects, at the grade's level)
+| Subject | Examples of the content (all fetched automatically) |
+|---|---|
+| values | Aesop's fables, Fifty Famous Stories, honesty / kindness / fairness / justice / ethics, moral development |
+| language | nursery rhymes, TinyStories, McGuffey's graded readers 1-6 |
+| math | counting, +/-, fractions, algebra, geometry (Simple/English Wikipedia) |
+| science | nature, weather, forces, energy, chemistry, biology, physics |
+| history | early civilisations to revolutions and world wars |
+| civics | rules, rights, democracy, constitutions, political science |
+| mind | psychology: emotions, empathy, motivation, cognitive development |
+| heart | **labelled feelings** (`dair-ai/emotion`): "Feeling: i feel lost... Emotion: sadness" |
+| judgment | **right or wrong?** (`hendrycks/ethics`): "Situation: ... Is it wrong? yes/no" (from Grade 4) |
+| extra | **your own files** in `content/<grade>/` (PDF, text, web links) - see `content/README.md` |
 
-## Grades (edit `school/curriculum.py` to add your own)
-1 copy a word · 2 reverse a word · 3 next number · 4 add single digits · 5 add two-digit numbers · 6 sort digits
+## The exams (held-out questions the model never studied)
+- **Words**: pick the missing word out of 4 look-alikes, separately **per subject**. The average must reach the mark and no subject may lag far behind.
+- **Moral** (Values stage): read an unseen fable, pick its true moral out of 4.
+- **Emotion** and **Right/wrong**: classify unseen labelled examples.
+- **Review**: every earlier grade is re-examined and must not slip (no forgetting).
+- Printed per exam, e.g. `words[val=62% mat=48% sci=55% ...] avg=54% moral=47% emotion=52%`.
 
-## Use
+## Start
 ```
-pip install torch pytest
-python -m school.train --out runs/school          # ~10 min on 4 CPU cores
-python -m school.ask runs/school/latest.pt "27+45=" "rev abc="
-python -m pytest tests
+pip install torch pypdf
+python -m school.train                      # trains in 60-minute parts, asks before moving on
+python -m school.train --status             # report card
+python -m school.ask "Once upon a time"     # let it write
 ```
-Knobs: `--steps-per-lesson` (steps between exams), `--max-attempts`, `--lr`, `--review-frac`, `--grades`.
+Options: `--part-minutes 60`, `--size tiny|small|base`, `--steps 400` (between exams), `--pass-scale 0.9` (all marks 10% easier), `--out`, `--data`, `--content`.
+**Kaggle / Colab: see [KAGGLE_COLAB.md](KAGGLE_COLAB.md).**
 
-To add a grade: write a generator returning `(prompt, answer)` (prompt ends in `=`), append a `Grade(...)` to `GRADES`.
+## Change the curriculum
+Everything is in `school/stages.py`: each `Stage` lists its sources and pass marks. To go beyond Grade 6, append stages
+(e.g. `Stage("Grade 7", "grade7", "...", [wiki("math", "Algebra|...", EN), ...])`) and make a `content/grade7/` folder.
+
+## Honest limits
+This is a small model trained on small data. It learns language, facts and the *patterns* of feelings and right/wrong from
+examples; it does not "feel" or truly reason morally. The exams measure whether it picks the human-labelled answer more often
+than chance. Pass marks are starting values: read the exam lines and tune with `--pass-scale` or `stages.py`.

@@ -10,11 +10,11 @@ import torch.nn.functional as F
 @dataclass
 class ModelConfig:
     vocab_size: int
-    block_size: int = 48
+    block_size: int = 256
     n_layer: int = 4
     n_head: int = 4
     n_embd: int = 128
-    dropout: float = 0.0
+    dropout: float = 0.1
 
 
 class Block(nn.Module):
@@ -65,15 +65,14 @@ class GPT(nn.Module):
         return self.head(self.ln_f(x))
 
     @torch.no_grad()
-    def generate(self, idx, stop_id, max_new=16):
-        """Greedy decode a batch of equal-length prompts until every row has emitted stop_id."""
-        done = torch.zeros(idx.shape[0], dtype=torch.bool)
-        for _ in range(max_new):
-            nxt = self(idx[:, -self.c.block_size:])[:, -1].argmax(-1)
-            idx = torch.cat([idx, nxt[:, None]], 1)
-            done |= nxt == stop_id
-            if done.all():
-                break
+    def sample(self, idx, n, temperature=0.8, top_k=20):
+        """Write n more characters after the prompt idx (1 x T)."""
+        self.eval()
+        for _ in range(n):
+            logits = self(idx[:, -self.c.block_size:])[:, -1] / temperature
+            v, _ = torch.topk(logits, top_k)
+            logits[logits < v[:, [-1]]] = -float("inf")
+            idx = torch.cat([idx, torch.multinomial(F.softmax(logits, -1), 1)], 1)
         return idx
 
     def n_params(self):
