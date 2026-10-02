@@ -182,3 +182,27 @@ exam 12 | step 2400 | loss 1.9 | 15s | words[val=58% min=41%] avg=49% judgment=5
 | Out of memory | Add `"--batch", "16"` to the list in Cell 2, or use `"--size", "tiny"`. |
 | `loss` near 0 but scores low / `bpc` high | Memorising small lessons (see above). Pull the latest code, restart the session, and start over (`!rm -rf /kaggle/working/runs/school`). |
 | Stuck at a grade for many exams | See the tips above: more material, or `"--pass-scale", "0.9"`. |
+
+---------------------------------------------------------------------------
+
+# Clean the old model (start over from nothing)
+
+Use this when the model went wrong (for example it memorised), or after a big code update. **It deletes all saved progress.**
+
+**Kaggle**
+1. **Run -> Restart session** (so old code is dropped from memory).
+2. Run **Cell 1** (gets the latest code).
+3. Run this cell once:
+   ```python
+   !rm -rf /kaggle/working/runs/school
+   ```
+4. If you added an earlier saved output as an **Input** (right panel), remove it. Otherwise Cell 2 copies the old model back in.
+5. Run **Cell 2**. It prints `Starting fresh (no saved progress found).`
+
+**Colab**
+```python
+!rm -rf /content/drive/MyDrive/ai-child/runs
+```
+Then run Cell 1 and Cell 2. (Downloaded lessons in `.../ai-child/data` are kept, so it does not re-download them.)
+
+Keep a copy first? Download or copy `latest.pt` and `state.json` before deleting. `passed_*.pt` files are snapshots from each passed grade.
