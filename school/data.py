@@ -63,12 +63,19 @@ def _download(url: str, headers=None, tries=5) -> bytes:
     raise RuntimeError(f"could not download {url}: {err}")
 
 
+MISSING = b"\x00missing"
+
+
 def _cached(cache_dir: str, name: str, getter) -> str:
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, re.sub(r"[^A-Za-z0-9._-]", "_", name))
-    if not os.path.exists(path):
-        open(path, "wb").write(getter())
-    return open(path, "rb").read().decode("utf8", "ignore")
+    if not os.path.exists(path) or os.path.getsize(path) == 0:       # an empty file is never trusted (old failed downloads)
+        data = getter()
+        if data:
+            open(path, "wb").write(data)
+        return "" if data in (b"", MISSING) else data.decode("utf8", "ignore")
+    raw = open(path, "rb").read()
+    return "" if raw == MISSING else raw.decode("utf8", "ignore")
 
 
 def to_ascii(t: str) -> str:
@@ -141,8 +148,9 @@ def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
         url = (f"https://{lg}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles="
                + urllib.parse.quote(title))
         def get():
-            d = json.loads(_download(url))
-            return "\n".join(p.get("extract", "") for p in d["query"]["pages"].values()).encode()
+            pages = json.loads(_download(url))["query"]["pages"].values()
+            text = "\n".join(p.get("extract", "") for p in pages).encode()
+            return text or (MISSING if any("missing" in p for p in pages) else b"")   # remember only pages Wikipedia says do not exist
         try:
             return _cached(cache_dir, f"wiki_{lg}_{title}.txt", get)
         except Exception:

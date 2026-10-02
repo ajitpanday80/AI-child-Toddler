@@ -170,7 +170,7 @@ def status(out):
 
 
 def fmt(card):
-    cl = " ".join(f"{k[6:9]}={v:.0%}" for k, v in card.items() if k.startswith("cloze:"))
+    cl = " ".join(f"{k[6:]}={v:.0%}" for k, v in card.items() if k.startswith("cloze:"))
     tk = " ".join(f"{k}={v:.0%}" for k, v in card.items() if k in ("moral", "emotion", "judgment") and v is not None)
     return f"words[{cl}] avg={card['cloze'] or 0:.0%} {tk} bpc={card['bpc']:.2f}"
 

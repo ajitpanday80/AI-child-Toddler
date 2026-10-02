@@ -160,9 +160,9 @@ main(["--out", "/content/drive/MyDrive/ai-child/runs", "--status"])
 
 # How to read the exam line
 ```
-exam 12 | step 2400 | loss 1.9 | 15s | words[val=58% min=41%] avg=49% judgment=57% moral=27% bpc=3.1 | need avg>=50% judgment>=56%
+exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgment=57% moral=27% bpc=3.1 | need avg>=50% judgment>=56%
 ```
-- `words[...]`: pick the missing word out of 4 (25% = guessing). `avg` is the average over subjects; the weakest subject (`min`) may not lag far behind.
+- `words[subject=..%, ...]`: pick the missing word out of 4, one score per subject (25% = guessing). `avg` is their average; no subject may lag far behind the average.
 - `judgment` / `emotion`: right-or-wrong and feeling tests on unseen examples, with the same number of each answer, so guessing scores only 50% (judgment) or 17% (emotion). `moral`: the fable test is shown for information only (the model has too few fables to learn it).
 - `loss` is the error on text it is *studying*; `bpc` is the error on text it has *never seen* (lower is better, 2-3 is good). **If `loss` is near 0 but `bpc` stays high or rises, the model is memorising.** It then cannot pass, and training longer makes it worse.
 - To limit memorising, each exam now uses few steps when the lessons are small, and the model has stronger regularisation.
@@ -176,7 +176,7 @@ exam 12 | step 2400 | loss 1.9 | 15s | words[val=58% min=41%] avg=49% judgment=5
 | `fatal: destination path ... already exists` | Use Cell 1 as written: it pulls if the folder exists. |
 | `shape '[32, 256, 6, 42]' is invalid` | Old code (fixed). Restart session, Cell 1, Cell 2. |
 | Nothing changed after an update | Python keeps old code in memory: **Run -> Restart session**, Cell 1, Cell 2. |
-| `! N of M ... pages could not be downloaded`, or tiny counts like `mind:10` | Wikipedia rate-limited the notebook. Finished pages are kept. Answer `n`, wait a few minutes, run Cell 2 again: only missing pages are fetched. |
+| `! N of M ... pages could not be downloaded`, or tiny counts like `mind:10` (about 150-200 is normal) | Wikipedia rate-limited the notebook, or an old failed download is cached: clear it with `!rm -rf /kaggle/working/school_repo/data` and run Cell 2 again. Finished pages are kept. Answer `n`, wait a few minutes, run Cell 2 again: only missing pages are fetched. |
 | `could not download ...` | Kaggle Internet is Off. Turn it on and re-run (finished downloads are cached). |
 | The question never appears | You ran it with `!python ...`. Use the Python `main([...])` call as in Cell 2. |
 | Out of memory | Add `"--batch", "16"` to the list in Cell 2, or use `"--size", "tiny"`. |

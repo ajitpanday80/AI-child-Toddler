@@ -38,10 +38,10 @@ MCG = {1: 14640, 2: 14668, 3: 14766, 4: 14880, 5: 15040, 6: 16751}   # McGuffey'
 
 STAGES = [
     Stage("Values", "values", "moral stories, ethics, kindness, right & wrong", [
-        Source("gutenberg", 19994, fables=True), Source("gutenberg", 18442, subject="values"), Source("ethics", 3500),
+        Source("gutenberg", 19994, fables=True), Source("gutenberg", 18442, subject="values"), Source("ethics", 8000),
         wiki("values", "Honesty|Kindness|Fairness|Courage|Friendship|Respect|Responsibility|Forgiveness|Patience|Generosity|Truth|Bullying|Ethics|Morality|Golden Rule|Empathy|Compassion|Gratitude|Justice|Peace|Sharing|Cheating|Stealing|Lie"),
         wiki("mind", "Emotion|Happiness|Sadness|Anger|Fear|Love|Surprise|Pain|Hope"),
-    ], cloze_pass=0.50, tasks_pass={"judgment": 0.58}),   # "moral" (fable -> true moral) is shown but not required: too little data to learn it
+    ], cloze_pass=0.42, tasks_pass={"judgment": 0.54}),   # "moral" (fable -> true moral) is shown but not required: too little data to learn it
 
     Stage("Pre-Nursery", "pre-nursery", "rhymes, colours, shapes, family, feelings", [
         Source("gutenberg", 10607, verse=True), Source("gutenberg", 39784, verse=True),
