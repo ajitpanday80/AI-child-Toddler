@@ -168,14 +168,24 @@ def _clean_wiki(t: str) -> str:
 
 
 def hf_rows(dataset: str, config: str, split: str, n: int, cache_dir: str) -> List[dict]:
-    def get():
-        rows = []
-        for off in range(0, n, 100):
+    """Rows from the Hugging Face datasets server, 100 per request. Every batch is cached the moment it arrives,
+    so a rate limit (HTTP 429) in the middle costs nothing: the next run continues where this one stopped."""
+    rows = []
+    for off in range(0, n, 100):
+        def get(off=off):
             u = (f"https://datasets-server.huggingface.co/rows?dataset={urllib.parse.quote(dataset)}&config={config}"
                  f"&split={split}&offset={off}&length=100")
-            rows += [r["row"] for r in json.loads(_download(u))["rows"]]
-        return json.dumps(rows).encode()
-    return json.loads(_cached(cache_dir, f"hf_{dataset}_{config}_{split}_{n}.json", get))
+            return json.dumps([r["row"] for r in json.loads(_download(u, tries=7))["rows"]]).encode()
+        t0 = time.time()
+        try:
+            rows += json.loads(_cached(cache_dir, f"hf_{dataset}_{config}_{split}_{off}.json", get))
+        except RuntimeError as e:
+            print(f"  ! {dataset}: stopped at row {off} of {n} ({str(e)[-60:]}). Using the {len(rows)} rows loaded so far; "
+                  "run again later to fetch the rest.", flush=True)
+            break
+        if time.time() - t0 > 0.05:
+            time.sleep(0.3)                             # a real download happened: be gentle with the server
+    return rows
 
 
 def load_source(src: Source, cache_dir: str = "data") -> List[Doc]:
