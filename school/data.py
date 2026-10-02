@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import List, Optional
 
-UA = {"User-Agent": "Mozilla/5.0 (ai-child-school; educational model training)"}
+UA = {"User-Agent": "ai-child-school/1.0 (https://github.com/ajitpanday80/ai-child-toddler; educational model training)"}
 SMART = {"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-", "…": "...", " ": " "}
 SUBJECTS = ["values", "language", "math", "science", "history", "civics", "mind", "heart", "judgment", "extra"]
 EMOTIONS = ["sadness", "joy", "love", "anger", "fear", "surprise"]
@@ -48,16 +48,17 @@ class Source:
 
 
 # ---------------------------------------------------------------- low-level helpers
-def _download(url: str, headers=None, tries=4) -> bytes:
+def _download(url: str, headers=None, tries=5) -> bytes:
     err = None
     for i in range(tries):
         try:
             return urllib.request.urlopen(urllib.request.Request(url, headers={**UA, **(headers or {})}), timeout=90).read()
         except Exception as e:  # the network is flaky; back off and retry
             err = e
-            if getattr(e, "code", 0) in (404, 403):
+            code = getattr(e, "code", 0)
+            if code in (404, 403):
                 break
-            time.sleep(2 ** i)
+            time.sleep(6 * (i + 1) if code in (429, 503) else 2 ** i)      # rate-limited: wait longer
     raise RuntimeError(f"could not download {url}: {err}")
 
 
@@ -131,6 +132,9 @@ def parse_fables(t: str) -> List[Doc]:
     return docs
 
 
+WIKI_FAILED: List[str] = []
+
+
 def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
     def fetch(lg):
         url = (f"https://{lg}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles="
@@ -141,6 +145,7 @@ def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
         try:
             return _cached(cache_dir, f"wiki_{lg}_{title}.txt", get)
         except Exception:
+            WIKI_FAILED.append(title)          # network trouble (not "page missing"): not cached, retried next run
             return ""
     text = fetch(lang)
     return text if len(text) > 200 or lang == "en" else fetch("en")   # not in Simple English? use the full article
@@ -175,8 +180,20 @@ def load_source(src: Source, cache_dir: str = "data") -> List[Doc]:
         docs = [Doc(to_ascii(s), s) for s in (x.strip() for x in raw.split("<|endoftext|>")[1:-1]) if len(s) > 80]
     elif src.kind == "wiki":
         lang, titles = src.ref
-        with ThreadPoolExecutor(8) as ex:
+        WIKI_FAILED.clear()
+        with ThreadPoolExecutor(3) as ex:                      # gentle: Wikipedia rate-limits busy addresses
             pages = list(ex.map(lambda t: _wiki_page(lang, t, cache_dir), titles))
+        for _ in range(2):                                      # second chance for pages that failed on the network
+            retry = sorted(set(WIKI_FAILED))
+            if not retry:
+                break
+            WIKI_FAILED.clear()
+            time.sleep(10)
+            for t in retry:
+                pages[titles.index(t)] = _wiki_page(lang, t, cache_dir)
+        if WIKI_FAILED:
+            print(f"  ! {len(set(WIKI_FAILED))} of {len(titles)} {src.subject} pages could not be downloaded "
+                  "(network/rate limit); re-run later to fetch them", flush=True)
         docs = [Doc(p, p) for pg in pages for p in paragraphs(to_ascii(_clean_wiki(pg)))]
     elif src.kind == "emotion":     # tweets labelled with one of 6 emotions
         docs = []

@@ -19,7 +19,7 @@ from .model import GPT, ModelConfig
 from .stages import STAGES
 
 PASS_SCALE = 1.0     # --pass-scale: multiplies every pass mark (e.g. 0.9 = 10% easier)
-SIZES = {"tiny": (4, 4, 128), "small": (6, 6, 256), "base": (8, 8, 384)}   # (layers, heads, width)  ~0.9M / 5M / 14M params
+SIZES = {"tiny": (4, 4, 128), "small": (6, 8, 256), "base": (8, 8, 384)}   # (layers, heads, width)  ~0.9M / 5M / 14M params
 
 
 def log(*a):

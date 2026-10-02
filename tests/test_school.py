@@ -108,3 +108,10 @@ def test_part_ends_and_asks_to_continue(tmp_path, monkeypatch):
                 "--device", "cpu", "--part-minutes", "0"], ask=lambda p: asked.append(p) or "n")
     assert "Continue with the next part" in asked[0]
     assert json.load(open(os.path.join(out, "state.json")))["parts"] == 1
+
+
+def test_every_model_size_is_valid_and_runs():
+    for name, (L, H, C) in train.SIZES.items():
+        assert C % H == 0, name
+        m = GPT(ModelConfig(vocab_size=128, n_layer=1, n_head=H, n_embd=C))   # same heads/width as the real size
+        assert m(torch.zeros(2, 16, dtype=torch.long)).shape == (2, 16, 128)

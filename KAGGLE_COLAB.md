@@ -111,5 +111,8 @@ Use `--ckpt .../passed_0_Values.pt` to hear the model as it was when it passed a
 | `could not download ...` | Internet is Off (Kaggle) or the site is slow. Turn it On, re-run: finished downloads are cached. |
 | The question never appears | You ran it with `!python`. Use `from school.train import main; main([...])`. |
 | Session ended in the middle of a lesson | Re-run. It resumes from the last exam (saved each time). |
+| `shape '[32, 256, 6, 42]' is invalid` | Old code (fixed). **Run -> Restart session**, run Cell 1 (it pulls the fix), then run again. |
+| After any update (`git pull`) nothing changed | Python keeps old code in memory: **Run -> Restart session**, then Cell 1, then your run cell. |
+| `! N of M ... pages could not be downloaded` | Wikipedia rate-limited the notebook. Safe: finished pages are kept. Stop (`n`), wait a few minutes, run again; missing pages are fetched then. Lines like `mind:10` in the lesson summary (vs. ~100-300) mean this happened. |
 | Out of memory | `--batch 16`, or `--size tiny`/`small`. |
 | Stuck at a stage for many exams | Read the per-subject scores in the log. A low subject needs more material in `content/<grade>/<subject>/`, or use `--pass-scale 0.9`. |
