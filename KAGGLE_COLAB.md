@@ -21,6 +21,17 @@ What must survive between sessions: the `runs/school/` folder (model + progress)
    !pip -q install pypdf
    ```
    (PyTorch is already installed on Kaggle.)
+
+   **If the repo is private**, the clone asks for a GitHub username and hangs. Either make the repo public
+   (GitHub -> Settings -> General -> Change visibility), or use a read-only token kept in a secret:
+   create a fine-grained token (this repo only, *Contents: Read-only*), add it in Kaggle under **Add-ons -> Secrets** as `GITHUB_TOKEN` (Colab: the key icon, name `GITHUB_TOKEN`), then:
+   ```python
+   from kaggle_secrets import UserSecretsClient          # Colab: from google.colab import userdata; tok = userdata.get('GITHUB_TOKEN')
+   tok = UserSecretsClient().get_secret("GITHUB_TOKEN")
+   !git clone -b claude/progressive-model-training-gates-33mehr https://{tok}@github.com/ajitpanday80/ai-child-toddler /kaggle/working/school_repo
+   !git -C /kaggle/working/school_repo remote set-url origin https://github.com/ajitpanday80/ai-child-toddler
+   ```
+   (The second line removes the token from the saved git config. Keep the notebook private and never paste the token in chat or code.)
 4. *(Optional)* your own material: create a Kaggle **Dataset** containing a `content/` folder (`grade1/`, `grade2/`, ... with PDFs, `.txt`, `links.txt`), then **Add Input** to the notebook. It appears at `/kaggle/input/<dataset-name>/content`.
 
 ### Run a part (every session)
@@ -93,6 +104,7 @@ Use `--ckpt .../passed_0_Values.pt` to hear the model as it was when it passed a
 ## Troubleshooting
 | Problem | Fix |
 |---|---|
+| Clone asks for `Username for 'https://github.com'` | The repo is private: see the step 3 note above. |
 | `could not download ...` | Internet is Off (Kaggle) or the site is slow. Turn it On, re-run: finished downloads are cached. |
 | The question never appears | You ran it with `!python`. Use `from school.train import main; main([...])`. |
 | Session ended in the middle of a lesson | Re-run. It resumes from the last exam (saved each time). |
