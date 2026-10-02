@@ -137,3 +137,20 @@ def test_label_exam_is_balanced_so_guessing_scores_chance():
     p = label_paper([d for d in docs if d.is_exam()], "judgment")
     gold = [c[g] for _, c, g in p]
     assert gold.count(" yes") == gold.count(" no") > 20       # 90% of the data says "no", the exam does not
+
+
+def test_chat_shows_learned_and_answers_every_command(tmp_path, capsys):
+    from school import chat
+    m = tiny()
+    st = {"stage": 1, "phase": "studying", "attempt": 0, "step": 5, "parts": 0, "best_q": -1.0, "since_best": 0, "history": [],
+          "baselines": {"Values": {"cloze": 0.47, "judgment": 0.55, "cloze:values": 0.6, "cloze:mind": 0.3, "moral": 0.2}}}
+    out = str(tmp_path / "run")
+    os.makedirs(out)
+    train.save_state(out, m, torch.optim.AdamW(m.parameters()), st)
+    lines = iter(["/learned", "The sun is", "/feel i lost my toy", "/wrong I took his lunch", "/word The dog ran to the ___ | park | tree | moon",
+                  "/word broken", "/moral A fox saw grapes. He could not reach them.", "/nonsense", "/quit"])
+    chat.main(["--out", out, "--data", str(tmp_path / "d"), "--device", "cpu"], ask=lambda p: next(lines))
+    txt = capsys.readouterr().out
+    assert "WHAT IT HAS LEARNED SO FAR" in txt and "Values" in txt and "PASSED" in txt and "WEAK" in txt   # mind=30% is flagged
+    assert "sadness" in txt and "not wrong" in txt and "park" in txt and "Use:  /word" in txt and "Moral:" in txt and "Unknown command" in txt
+    assert "Pre-Nursery" in txt          # the stage it is working on is listed too

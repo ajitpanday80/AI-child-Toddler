@@ -34,6 +34,9 @@ class Stage:
     review_tol: float = 0.10            # earlier stages may not drop more than this below the mark they passed with
 
 
+BOOKS = {19994: "Aesop for Children (fables with morals)", 18442: "Fifty Famous Stories Retold", 10607: "The Real Mother Goose (rhymes)",
+         39784: "Mother Goose's Nursery Rhymes", 14640: "McGuffey's First Reader", 14668: "McGuffey's Second Reader",
+         14766: "McGuffey's Third Reader", 14880: "McGuffey's Fourth Reader", 15040: "McGuffey's Fifth Reader", 16751: "McGuffey's Sixth Reader"}
 MCG = {1: 14640, 2: 14668, 3: 14766, 4: 14880, 5: 15040, 6: 16751}   # McGuffey's graded readers (Project Gutenberg)
 
 STAGES = [

@@ -77,10 +77,48 @@ from school.train import main
 main(["--out", "/kaggle/working/runs/school", "--status"])
 ```
 
+## Cell 4 (any time): ask it questions, and see what it has learned
+Stop the training cell first (or wait for the end of a part): a notebook runs one cell at a time.
+```python
+%cd /kaggle/working/school_repo
+from school.chat import main
+main(["--out", "/kaggle/working/runs/school"])
+```
+It first prints **what it has learned so far** (stages passed with their scores, the exact topics and books it was taught, weak subjects, what is not taught yet). Then type questions in the box under the cell, one per line:
+
+| You type | What happens |
+|---|---|
+| `The sun is` (or `/say The sun is`) | It continues the text. |
+| `/feel i lost my toy` | Which of 6 feelings fits (sadness, joy, love, anger, fear, surprise), with percentages. |
+| `/wrong I took his lunch` | Wrong or not wrong, with percentages. |
+| `/word The dog ran to the ___ \| park \| tree \| moon` | Picks the word that fits best. |
+| `/moral A fox saw grapes. He could not reach them.` | Writes the moral it draws. |
+| `/learned` | Shows the learned-so-far report again. |
+| `/quit` | Leave. |
+
+Only ask about things it was taught (see the report). For topics it has not reached, it will guess, and `/feel` and `/wrong` say so. It answers from patterns in its lessons: a small model's answers are often wrong or silly, and the percentages show how unsure it is (near 50% for 2 choices, near 17% for 6 choices means a guess).
+
+Just the report: `main(["--out", "/kaggle/working/runs/school", "--learned"])`.
+To talk to the model as it was when it passed a stage: add `"--ckpt", "/kaggle/working/runs/school/passed_0_Values.pt"` to the list.
+
+## Start over from nothing (optional)
+After a big code update (for example when the training was memorising), restart the school from the beginning. This deletes saved progress, so run it only when you mean it:
+```python
+!rm -rf /kaggle/working/runs/school
+```
+Also remove the old progress Input (or it will be copied back in Cell 2).
+
+## Cell 3 (any time): report card
+```python
+%cd /kaggle/working/school_repo
+from school.train import main
+main(["--out", "/kaggle/working/runs/school", "--status"])
+```
+
 ## Cell 4 (any time): let the model write
 ```python
 %cd /kaggle/working/school_repo
-!python -m school.ask "Once upon a time" --ckpt /kaggle/working/runs/school/latest.pt
+!python -m school.chat "Once upon a time" --ckpt /kaggle/working/runs/school/latest.pt
 ```
 Use `--ckpt /kaggle/working/runs/school/passed_0_Values.pt` to hear the model as it was when it passed that stage.
 
@@ -150,11 +188,13 @@ from school.train import main
 main(["--out", "/content/drive/MyDrive/ai-child/runs", "--status"])
 ```
 
-## Cell 4: let the model write
+## Cell 4: ask it questions, and see what it has learned
 ```python
 %cd /content/school_repo
-!python -m school.ask "Once upon a time" --ckpt /content/drive/MyDrive/ai-child/runs/latest.pt
+from school.chat import main
+main(["--out", "/content/drive/MyDrive/ai-child/runs", "--data", "/content/drive/MyDrive/ai-child/data"])
 ```
+Same questions as on Kaggle (`/say`, `/feel`, `/wrong`, `/word`, `/moral`, `/learned`, `/quit`).
 
 ---------------------------------------------------------------------------
 

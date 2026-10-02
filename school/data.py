@@ -144,6 +144,15 @@ WIKI_FAILED: List[str] = []
 WIKI_ERRORS: dict = {}          # title -> last error (for school.diagnose)
 
 
+def wiki_cached(cache_dir: str, lang: str, title: str) -> bool:
+    """True if this page was really downloaded (Simple English, or the English fallback)."""
+    for lg in {lang, "en"}:
+        f = os.path.join(cache_dir, re.sub(r"[^A-Za-z0-9._-]", "_", f"wiki_{lg}_{title}.txt"))
+        if os.path.exists(f) and os.path.getsize(f) > 200:
+            return True
+    return False
+
+
 def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
     def fetch(lg):
         url = (f"https://{lg}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles="

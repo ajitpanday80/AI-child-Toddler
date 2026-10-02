@@ -36,10 +36,15 @@ every 60 min: part ends -> saved -> "Continue with the next part? [y/n]"   (buil
 pip install torch pypdf
 python -m school.train                      # trains in 60-minute parts, asks before moving on
 python -m school.train --status             # report card
-python -m school.ask "Once upon a time"     # let it write
+python -m school.chat                       # see what it learned, then ask it questions by hand
 ```
 Options: `--part-minutes 60`, `--size tiny|small|base`, `--steps 400` (between exams), `--pass-scale 0.9` (all marks 10% easier), `--out`, `--data`, `--content`.
 **Kaggle / Colab: see [KAGGLE_COLAB.md](KAGGLE_COLAB.md).**
+
+## Ask it questions yourself
+`python -m school.chat` first prints **what it has learned so far** (stages passed + scores, the exact topics and books taught, weak subjects,
+what is not taught yet), then lets you type questions: `/say` (continue text), `/feel` (which of 6 feelings), `/wrong` (right or wrong),
+`/word` (fill a blank), `/moral` (lesson of a short story). It marks answers outside what it was taught as guesses.
 
 ## Change the curriculum
 Everything is in `school/stages.py`: each `Stage` lists its sources and pass marks. To go beyond Grade 6, append stages
