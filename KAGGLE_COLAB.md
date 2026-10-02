@@ -168,6 +168,25 @@ exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgme
 - To limit memorising, each exam now uses few steps when the lessons are small, and the model has stronger regularisation.
 - If there is no improvement for 8 exams (`--patience`), it goes back to its best version, explains why, and asks `Move on ... anyway? [y/n]`. Answer `y` to accept the best version and continue, or `n` to stop and add material (`content/<grade>/`) or ease the marks (`"--pass-scale", "0.9"`).
 
+# The "Move on anyway?" question
+```
+Values: no improvement for 8 exams (best so far: ...)
+Move on to Pre-Nursery anyway, using the best version so far? [y/n]
+```
+It appears when the exams stop improving. Training longer would only make the model memorise (watch `loss` falling while `bpc` stays flat). It has already gone back to its best version.
+- **`y`** (usually right): continue to the next stage with the best version. Later stages re-test earlier ones, so what it learned is kept.
+- **`n`**: stop. Add material in `content/<grade>/` (PDFs, links) or ease the marks (`"--pass-scale", "0.9"`), then run Cell 2 again.
+A low subject (for example `mind`) is nearly always a lack of material, not of training time.
+
+# Why is a subject small? (diagnose downloads)
+Shows, page by page, which Wikipedia downloads worked (run it after Cell 1; `0` = the first stage, `"mind"` = the subject):
+```python
+%cd /kaggle/working/school_repo
+from school.diagnose import main
+main(0, "mind")
+```
+`FAILED` lines name the error (for example a rate limit): wait a few minutes and re-run Cell 2. `EMPTY` means the page does not exist.
+
 # Troubleshooting
 | Problem | Fix |
 |---|---|

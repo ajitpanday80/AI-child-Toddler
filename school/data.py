@@ -141,6 +141,7 @@ def parse_fables(t: str) -> List[Doc]:
 
 
 WIKI_FAILED: List[str] = []
+WIKI_ERRORS: dict = {}          # title -> last error (for school.diagnose)
 
 
 def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
@@ -153,7 +154,8 @@ def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
             return text or (MISSING if any("missing" in p for p in pages) else b"")   # remember only pages Wikipedia says do not exist
         try:
             return _cached(cache_dir, f"wiki_{lg}_{title}.txt", get)
-        except Exception:
+        except Exception as e:
+            WIKI_ERRORS[title] = f"{type(e).__name__}: {e}"[:160]
             WIKI_FAILED.append(title)          # network trouble (not "page missing"): not cached, retried next run
             return ""
     text = fetch(lang)
