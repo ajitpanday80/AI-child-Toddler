@@ -67,7 +67,7 @@ def test_exam_papers_deterministic_and_untrained_near_chance():
 
 def test_label_exam():
     docs = [Doc(f"Situation: a{i}\nIs it wrong? yes", f"a{i}", "judgment", task="judgment", prompt=f"Situation: a{i}\nIs it wrong?",
-                answer=" yes", choices=[" yes", " no"]) for i in range(60)]
+                answer=" yes" if i % 2 else " no", choices=[" yes", " no"]) for i in range(60)]
     p = label_paper([d for d in docs if d.is_exam()], "judgment")
     assert p and 0 <= label_score(tiny(), p) <= 1
 
@@ -115,3 +115,25 @@ def test_every_model_size_is_valid_and_runs():
         assert C % H == 0, name
         m = GPT(ModelConfig(vocab_size=128, n_layer=1, n_head=H, n_embd=C))   # same heads/width as the real size
         assert m(torch.zeros(2, 16, dtype=torch.long)).shape == (2, 16, 128)
+
+
+def test_stuck_stage_asks_to_move_on_with_best_version(tmp_path, monkeypatch):
+    from school.stages import Stage
+    text = "\n\n".join(f"The {W[i % 7]} sat on the {W[(i * 3) % 7]} number {i} and the {W[(i * 5) % 7]} ran in the park with a {W[(i * 2) % 7]} today." for i in range(400))
+    mk = lambda n, f: Stage(n, f, "t", [Source("text", text)], cloze_pass=1.1)       # can never pass
+    monkeypatch.setattr(train, "STAGES", [mk("One", "g1"), Stage("Two", "g2", "t", [Source("text", text)], cloze_pass=0.0)])
+    out, asked = str(tmp_path / "run"), []
+    def ask(p):
+        asked.append(p)
+        return "y" if "anyway" in p else "n"
+    train.main(["--out", out, "--data", str(tmp_path / "d"), "--content", str(tmp_path / "c"), "--size", "tiny", "--steps", "2", "--batch", "2",
+                "--device", "cpu", "--patience", "2", "--part-minutes", "100"], ask=lambda p: (asked.append(p), "y" if "anyway" in p else "n")[1])
+    s = json.load(open(os.path.join(out, "state.json")))
+    assert any("anyway" in q for q in asked) and s["stage"] >= 1 and "One" in s["baselines"]
+
+
+def test_label_exam_is_balanced_so_guessing_scores_chance():
+    docs = [Doc(f"s{i}", f"k{i}", "judgment", task="judgment", prompt=f"P{i}", answer=" no" if i % 10 else " yes", choices=[" yes", " no"]) for i in range(2000)]
+    p = label_paper([d for d in docs if d.is_exam()], "judgment")
+    gold = [c[g] for _, c, g in p]
+    assert gold.count(" yes") == gold.count(" no") > 20       # 90% of the data says "no", the exam does not

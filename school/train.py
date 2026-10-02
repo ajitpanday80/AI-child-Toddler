@@ -97,6 +97,11 @@ def exam_card(model, sd):
     return card
 
 
+def quality(card):
+    """One number for 'how well does it generalise': word-cloze average + the labelled-task scores."""
+    return (card.get("cloze") or 0) + sum(card[t] or 0 for t in ("emotion", "judgment") if t in card)
+
+
 def judge(model, idx, ds, state):
     """Pass = this stage's marks reached in EVERY subject area AND no earlier stage forgotten."""
     stage = STAGES[idx]
@@ -128,20 +133,20 @@ def paths(out):
 def build(a):
     dev = "cuda" if (a.device == "auto" and torch.cuda.is_available()) else ("cpu" if a.device == "auto" else a.device)
     sp, cp = paths(a.out)
-    state = {"stage": 0, "phase": "studying", "attempt": 0, "step": 0, "parts": 0, "baselines": {}, "history": []}
+    state = {"stage": 0, "phase": "studying", "attempt": 0, "step": 0, "parts": 0, "best_q": -1.0, "since_best": 0, "baselines": {}, "history": []}
     if os.path.exists(sp) and os.path.exists(cp):
         state.update(json.load(open(sp)))
         ck = torch.load(cp, map_location="cpu")
         model = GPT(ModelConfig(**ck["cfg"]))
         model.load_state_dict(ck["model"])
         model.to(dev)
-        opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
+        opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.1)
         opt.load_state_dict(ck["opt"])
         log(f"Resuming: {STAGES[min(state['stage'], len(STAGES) - 1)].name}, {state['step']} steps so far, {state['parts']} parts done.")
     else:
         L, H, C = SIZES[a.size]
-        model = GPT(ModelConfig(vocab_size=128, n_layer=L, n_head=H, n_embd=C)).to(dev)
-        opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
+        model = GPT(ModelConfig(vocab_size=128, n_layer=L, n_head=H, n_embd=C, dropout=0.2)).to(dev)
+        opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.1)
     return model, opt, state, dev
 
 
@@ -207,6 +212,9 @@ def run(a, ask=input):
                 continue
             ds = ds_upto(i)
             log(f"\n=== {stage.name}: {stage.skill} ===")
+            chars = sum(len(c) for c, _ in ds[i].subjects.values())
+            steps = min(a.steps, max(40, int(a.epochs * chars / (a.batch * model.c.block_size))))   # ~a.epochs passes over the lessons per exam
+            log(f"  {chars/1e3:.0f}K characters of lessons -> exam every {steps} steps")
             while True:
                 if time.time() - t_part >= a.part_minutes * 60:      # part finished -> checkpoint and ask
                     state["parts"] += 1
@@ -217,7 +225,7 @@ def run(a, ask=input):
                     t_part = time.time()
                 t0 = time.time()
                 model.train()
-                for _ in range(a.steps):
+                for _ in range(steps):
                     x, y = make_batch(ds, i, rng, a.batch, model.c.block_size, a.review_frac, dev)
                     for g in opt.param_groups:
                         g["lr"] = a.lr * min(1.0, (state["step"] + 1) / 100)       # short warm-up after every (re)start
@@ -242,8 +250,30 @@ def run(a, ask=input):
                     state["phase"] = "awaiting_approval"
                     torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
                     save_state(a.out, model, opt, state)
+                    state["best_q"], state["since_best"] = -1.0, 0
                     break
+                q = quality(card)
+                if q > state["best_q"] + 0.005:
+                    state["best_q"], state["since_best"] = q, 0
+                    torch.save(model.state_dict(), os.path.join(a.out, "best_current_stage.pt"))
+                else:
+                    state["since_best"] += 1
                 save_state(a.out, model, opt, state)
+                if state["since_best"] >= a.patience:
+                    best = os.path.join(a.out, "best_current_stage.pt")
+                    if os.path.exists(best):
+                        model.load_state_dict(torch.load(best, map_location=dev))          # go back to its best moment
+                    state["since_best"] = 0
+                    save_state(a.out, model, opt, state)
+                    log(f"\n{stage.name}: no improvement for {a.patience} exams (best so far: {fmt(exam_card(model, ds[i]))}).")
+                    log("More training will not help; it needs more or better material (content/%s/) or easier marks (--pass-scale 0.9)." % stage.folder)
+                    if i + 1 < len(STAGES) and yes(ask, f"Move on to {STAGES[i + 1].name} anyway, using the best version so far? [y/n] "):
+                        state["baselines"][stage.name] = {k: v for k, v in exam_card(model, ds[i]).items() if k != "bpc"}
+                        torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
+                        state.update(stage=i + 1, phase="studying", attempt=0, best_q=-1.0, since_best=0)
+                        save_state(a.out, model, opt, state)
+                        break
+                    return log("Stopped. Add material or adjust marks, then run the same command again.")
         log("\nAll stages passed. Graduated!")
     except KeyboardInterrupt:
         save_state(a.out, model, opt, state)
@@ -281,6 +311,8 @@ def main(argv=None, ask=input):
     ap.add_argument("--size", choices=SIZES, default="small", help="model size (fixed when a run is first created)")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--steps", type=int, default=400, help="training steps between exams")
+    ap.add_argument("--epochs", type=float, default=2.0, help="passes over a stage's lessons between exams (small lessons => fewer steps, avoids memorising)")
+    ap.add_argument("--patience", type=int, default=8, help="exams without improvement before asking whether to move on anyway")
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--lr", type=float, default=6e-4)
     ap.add_argument("--review-frac", type=float, default=0.25, help="share of study time spent revising earlier stages")

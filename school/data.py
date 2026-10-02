@@ -19,6 +19,7 @@ from typing import List, Optional
 UA = {"User-Agent": "ai-child-school/1.0 (https://github.com/ajitpanday80/ai-child-toddler; educational model training)"}
 SMART = {"‘": "'", "’": "'", "“": '"', "”": '"', "–": "-", "—": "-", "…": "...", " ": " "}
 SUBJECTS = ["values", "language", "math", "science", "history", "civics", "mind", "heart", "judgment", "extra"]
+MATURE = re.compile(r"\b(sex\w*|rape\w*|porn\w*|naked|nude|kill\w*|murder\w*|suicide|drug\w*|cocaine|heroin|weed|gun\w*|shoot\w*|stab\w*|bomb\w*|drunk|alcohol\w*|beer|wine|vodka|cigarette\w*|stripper|prostitut\w*|whore|slut|bitch|fuck\w*|shit|damn|bastard|abuse\w*|molest\w*|terror\w*)\b", re.I)
 EMOTIONS = ["sadness", "joy", "love", "anger", "fear", "surprise"]
 
 
@@ -203,7 +204,7 @@ def load_source(src: Source, cache_dir: str = "data") -> List[Doc]:
     elif src.kind == "ethics":      # short everyday scenarios: is the action wrong?
         docs = []
         for r in hf_rows("hendrycks/ethics", "commonsense", "train", src.ref, cache_dir):
-            if len(r["input"]) <= 160:
+            if len(r["input"]) <= 160 and not MATURE.search(r["input"]):
                 pr, ans = f"Situation: {to_ascii(r['input'])}\nIs it wrong?", " yes" if r["label"] else " no"
                 docs.append(Doc(pr + ans, r["input"], "judgment", task="judgment", prompt=pr, answer=ans, choices=[" yes", " no"]))
     elif src.kind == "text":

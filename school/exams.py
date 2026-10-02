@@ -131,11 +131,19 @@ def heldout_bpc(model, exam_docs: List[Doc], n: int = 40, seed: int = 3) -> floa
     return -sum(sc) / n / 0.6931
 
 
-def label_paper(exam_docs: List[Doc], task: str, n: int = 100, seed: int = 5):
-    """Labelled examples (emotion / right-or-wrong): the model must rate the true label most likely."""
-    docs = sorted((d for d in exam_docs if d.task == task), key=lambda d: d.key)
-    random.Random(seed).shuffle(docs)
-    return [(d.prompt, d.choices, d.choices.index(d.answer)) for d in docs[:n]]
+def label_paper(exam_docs: List[Doc], task: str, n: int = 200, seed: int = 5):
+    """Labelled examples (emotion / right-or-wrong). BALANCED: the same number per answer, so always
+    guessing the common answer scores only chance (50% for right/wrong, 17% for 6 emotions)."""
+    by = {}
+    for d in sorted((d for d in exam_docs if d.task == task), key=lambda d: d.key):
+        by.setdefault(d.answer, []).append(d)
+    if len(by) < 2:
+        return []
+    per = min(n // len(by), min(len(v) for v in by.values()))
+    rng = random.Random(seed)
+    docs = [d for v in by.values() for d in rng.sample(v, per)]
+    rng.shuffle(docs)
+    return [(d.prompt, d.choices, d.choices.index(d.answer)) for d in docs]
 
 
 def label_score(model, paper) -> Optional[float]:

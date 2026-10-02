@@ -38,10 +38,10 @@ MCG = {1: 14640, 2: 14668, 3: 14766, 4: 14880, 5: 15040, 6: 16751}   # McGuffey'
 
 STAGES = [
     Stage("Values", "values", "moral stories, ethics, kindness, right & wrong", [
-        Source("gutenberg", 19994, fables=True), Source("gutenberg", 18442, subject="values"),
+        Source("gutenberg", 19994, fables=True), Source("gutenberg", 18442, subject="values"), Source("ethics", 3500),
         wiki("values", "Honesty|Kindness|Fairness|Courage|Friendship|Respect|Responsibility|Forgiveness|Patience|Generosity|Truth|Bullying|Ethics|Morality|Golden Rule|Empathy|Compassion|Gratitude|Justice|Peace|Sharing|Cheating|Stealing|Lie"),
         wiki("mind", "Emotion|Happiness|Sadness|Anger|Fear|Love|Surprise|Pain|Hope"),
-    ], cloze_pass=0.50, tasks_pass={"moral": 0.40}),
+    ], cloze_pass=0.50, tasks_pass={"judgment": 0.58}),   # "moral" (fable -> true moral) is shown but not required: too little data to learn it
 
     Stage("Pre-Nursery", "pre-nursery", "rhymes, colours, shapes, family, feelings", [
         Source("gutenberg", 10607, verse=True), Source("gutenberg", 39784, verse=True),
@@ -62,7 +62,7 @@ STAGES = [
 
     Stage("Grade 1", "grade1", "reading, +/-, living things, rules, feelings", [
         Source("gutenberg", MCG[1]),
-        Source("emotion", 1500),
+        Source("emotion", 3000),
         wiki("math", "Addition|Subtraction|Even and odd numbers|Number line|Coin|Fraction|Measurement|Weight|Temperature|Dozen"),
         wiki("science", "Magnet|Light|Sound|Heat|Solid|Liquid|Gas|Earth|Sun|Moon|Star|Planet|Mammal|Reptile|Amphibian|Skeleton|Human body"),
         wiki("history", "Calendar|Flag|National holiday|Christmas|Eid al-Fitr|Diwali|Thanksgiving|Museum|Library"),
@@ -72,7 +72,7 @@ STAGES = [
     ], cloze_pass=0.50, tasks_pass={"emotion": 0.35}),
 
     Stage("Grade 2", "grade2", "stories, multiplication, water & weather, community", [
-        Source("gutenberg", MCG[2]), Source("emotion", 2500),
+        Source("gutenberg", MCG[2]), Source("emotion", 3500),
         wiki("math", "Multiplication|Division|Place value|Odd number|Even number|Geometry|Line|Angle|Perimeter|Area|Time|Money"),
         wiki("science", "Water cycle|Weather|Rain|Thunderstorm|Rainbow|Volcano|Earthquake|Soil|Rock|Fossil|Plant|Seed|Photosynthesis|Pollination|Food chain|Habitat"),
         wiki("history", "Ancient Egypt|Pyramid|Stone Age|Dinosaur|Explorer|Christopher Columbus|Wheel|Writing|Alphabet|Paper"),
@@ -82,7 +82,7 @@ STAGES = [
     ], cloze_pass=0.50, tasks_pass={"emotion": 0.40}),
 
     Stage("Grade 3", "grade3", "chapter reading, fractions, forces, ancient history, rights", [
-        Source("gutenberg", MCG[3]), Source("emotion", 3500),
+        Source("gutenberg", MCG[3]), Source("emotion", 4000),
         wiki("math", "Fraction|Decimal|Multiplication|Division|Perimeter|Area|Triangle|Rectangle|Polygon|Symmetry|Graph|Probability"),
         wiki("science", "Force|Gravity|Friction|Energy|Motion|Simple machine|Lever|Electricity|Magnet|Light|Sound|Atom|Ecosystem|Food chain|Adaptation"),
         wiki("history", "Ancient Greece|Ancient Rome|Indus Valley Civilisation|Mesopotamia|Ancient China|Silk Road|Middle Ages|Renaissance|Mahatma Gandhi|Abraham Lincoln"),

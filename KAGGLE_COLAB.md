@@ -63,6 +63,13 @@ What you'll see:
 - On a pass: `*** Values PASSED ***` then `Move on to Pre-Nursery ...? [y/n]` -> type your answer in the box under the cell.
 - After 60 minutes: `Continue with the next part? [y/n]`. Type `n` to stop and save quota.
 
+## Start over from nothing (optional)
+After a big code update (for example when the training was memorising), restart the school from the beginning. This deletes saved progress, so run it only when you mean it:
+```python
+!rm -rf /kaggle/working/runs/school
+```
+Also remove the old progress Input (or it will be copied back in Cell 2).
+
 ## Cell 3 (any time): report card
 ```python
 %cd /kaggle/working/school_repo
@@ -134,6 +141,8 @@ main(["--out", BASE + "/runs",
 ```
 Answer the `[y/n]` questions in the box under the cell. If Colab disconnects: reconnect, run Cell 1 and Cell 2 again. At worst you lose the minutes since the last exam (saved at every exam).
 
+To start over from nothing (deletes saved progress): `!rm -rf /content/drive/MyDrive/ai-child/runs`
+
 ## Cell 3: report card
 ```python
 %cd /content/school_repo
@@ -149,6 +158,16 @@ main(["--out", "/content/drive/MyDrive/ai-child/runs", "--status"])
 
 ---------------------------------------------------------------------------
 
+# How to read the exam line
+```
+exam 12 | step 2400 | loss 1.9 | 15s | words[val=58% min=41%] avg=49% judgment=57% moral=27% bpc=3.1 | need avg>=50% judgment>=56%
+```
+- `words[...]`: pick the missing word out of 4 (25% = guessing). `avg` is the average over subjects; the weakest subject (`min`) may not lag far behind.
+- `judgment` / `emotion`: right-or-wrong and feeling tests on unseen examples, with the same number of each answer, so guessing scores only 50% (judgment) or 17% (emotion). `moral`: the fable test is shown for information only (the model has too few fables to learn it).
+- `loss` is the error on text it is *studying*; `bpc` is the error on text it has *never seen* (lower is better, 2-3 is good). **If `loss` is near 0 but `bpc` stays high or rises, the model is memorising.** It then cannot pass, and training longer makes it worse.
+- To limit memorising, each exam now uses few steps when the lessons are small, and the model has stronger regularisation.
+- If there is no improvement for 8 exams (`--patience`), it goes back to its best version, explains why, and asks `Move on ... anyway? [y/n]`. Answer `y` to accept the best version and continue, or `n` to stop and add material (`content/<grade>/`) or ease the marks (`"--pass-scale", "0.9"`).
+
 # Troubleshooting
 | Problem | Fix |
 |---|---|
@@ -161,4 +180,5 @@ main(["--out", "/content/drive/MyDrive/ai-child/runs", "--status"])
 | `could not download ...` | Kaggle Internet is Off. Turn it on and re-run (finished downloads are cached). |
 | The question never appears | You ran it with `!python ...`. Use the Python `main([...])` call as in Cell 2. |
 | Out of memory | Add `"--batch", "16"` to the list in Cell 2, or use `"--size", "tiny"`. |
+| `loss` near 0 but scores low / `bpc` high | Memorising small lessons (see above). Pull the latest code, restart the session, and start over (`!rm -rf /kaggle/working/runs/school`). |
 | Stuck at a grade for many exams | See the tips above: more material, or `"--pass-scale", "0.9"`. |
