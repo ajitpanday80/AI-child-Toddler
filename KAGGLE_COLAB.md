@@ -8,6 +8,16 @@ Free GPUs have limits (Kaggle ~30 GPU-hours/week; sessions end and **erase their
 
 Each code block below is a complete cell: copy it whole into its own cell. Order: **Setup (once), Cell 1, Cell 2**.
 
+| Cell | What it does | When |
+|---|---|---|
+| 1 | Get / update the code | every session |
+| 2 | Train (restores the backup, asks y/n questions) | every session |
+| 3 | Report card: what it has learned | any time |
+| 4 | Ask it questions (chat) | any time (stop training first) |
+| 5 | Why is a subject small? (download check) | if lessons look thin |
+| 6 | Check the backup repo | if you see backup errors, or to verify |
+| 7 | Start over from nothing | only when you mean it |
+
 ---------------------------------------------------------------------------
 
 # One-time setup: the progress backup (Hugging Face)
@@ -17,13 +27,13 @@ Each code block below is a complete cell: copy it whole into its own cell. Order
 3. Store it as a secret so it never appears in your notebook:
    - **Kaggle:** in the notebook menu **Add-ons -> Secrets -> Add secret**. Label `HF_TOKEN`, value = the token. Make sure the secret is switched **on for this notebook**.
    - **Colab:** the key icon in the left bar -> **Add new secret**, name `HF_TOKEN`, value = the token, switch **Notebook access** on.
-4. Nothing else: the first upload creates a **private** repo called `YOUR_HF_USERNAME/ai-child-progress`. In Cell 2 below, replace `YOUR_HF_USERNAME` with your Hugging Face username.
+4. The backup repo is `iajitpanday/ai-child-progress` (private; already created). It must be named exactly `<your Hugging Face username>/<repo>`: a wrong username is the usual cause of a `403 Forbidden` backup error. If you ever use a different account, change `iajitpanday` in the cells below to that username (or run the "Check backup" cell, which prints it).
 
 What the backup does:
 - At the start of a run it **restores** the backup if it has more progress than the local folder (`Backup: restored your progress (step N)`).
 - During the run it refreshes the backup every 10 minutes and when a stage is passed, a part ends, you answer `n`, or you stop the cell.
 - It **never overwrites** a backup that is further along than the current run, and a backup problem never stops training (you see `! Backup failed ...` and it retries).
-- You can see the files at `huggingface.co/YOUR_HF_USERNAME/ai-child-progress` (it is private; every upload is also a saved version).
+- You can see the files at `huggingface.co/iajitpanday/ai-child-progress` (it is private; every upload is also a saved version).
 
 What is and is not backed up:
 - **Backed up:** the model, optimizer and progress (`latest.pt`, `state.json`), the best version of the current stage, and a snapshot of every passed stage (`passed_*.pt`). About 20-100 MB in total.
@@ -60,7 +70,7 @@ import os, glob
 from kaggle_secrets import UserSecretsClient
 
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")       # your token, from the secret
-HF_REPO = "YOUR_HF_USERNAME/ai-child-progress"                            # <- put YOUR Hugging Face username here
+HF_REPO = "iajitpanday/ai-child-progress"                                 # your private backup repo (username/repo)
 
 OUT = "/kaggle/working/runs/school"                                       # working folder (erased when the session ends)
 CONTENT = next(iter(glob.glob("/kaggle/input/*/content")), "content")     # your own PDFs/links dataset, if you added one
@@ -70,7 +80,8 @@ main(["--out", OUT,
       "--content", CONTENT,
       "--hf-repo", HF_REPO,
       "--part-minutes", "60",
-      "--size", "small"])          # small ~5M params; "base" ~14M learns more but is slower (size is fixed when a run is first created)
+      "--size", "small",           # small ~5M params; "base" ~14M learns more but is slower (size is fixed when a run is first created)
+      "--patience", "30"])         # exams without improvement before it asks "Move on anyway?" (default 8; 30 gives slow skills more time)
 ```
 What you'll see:
 - `Backup: nothing saved there yet; it will be created during training.` (first time) or `Backup: restored your progress (step N).` (later sessions).
@@ -87,7 +98,7 @@ import os
 from kaggle_secrets import UserSecretsClient
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
 from school.chat import main
-main(["--out", "/kaggle/working/runs/school", "--hf-repo", "YOUR_HF_USERNAME/ai-child-progress", "--learned"])
+main(["--out", "/kaggle/working/runs/school", "--hf-repo", "iajitpanday/ai-child-progress", "--learned"])
 ```
 
 ## Cell 4 (any time): ask it questions
@@ -98,7 +109,7 @@ import os
 from kaggle_secrets import UserSecretsClient
 os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
 from school.chat import main
-main(["--out", "/kaggle/working/runs/school", "--hf-repo", "YOUR_HF_USERNAME/ai-child-progress", "--temperature", "0.5"])
+main(["--out", "/kaggle/working/runs/school", "--hf-repo", "iajitpanday/ai-child-progress", "--temperature", "0.5"])
 ```
 It first prints **what it has learned so far** (stages passed with scores, the exact topics and books taught, weak subjects, what is not taught yet). Then type questions in the box under the cell:
 
@@ -152,7 +163,7 @@ from google.colab import userdata, drive
 drive.mount('/content/drive')                                   # optional second copy of your progress on Google Drive
 
 os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")
-HF_REPO = "YOUR_HF_USERNAME/ai-child-progress"                  # <- put YOUR Hugging Face username here
+HF_REPO = "iajitpanday/ai-child-progress"                        # your private backup repo (username/repo)
 BASE = "/content/drive/MyDrive/ai-child"
 os.makedirs(BASE + "/content", exist_ok=True)                   # put your grade1/, grade2/ ... folders in this "content" folder
 
@@ -162,7 +173,8 @@ main(["--out", BASE + "/runs",
       "--content", BASE + "/content",
       "--hf-repo", HF_REPO,
       "--part-minutes", "60",
-      "--size", "small"])
+      "--size", "small",
+      "--patience", "30"])
 ```
 Answer the `[y/n]` questions in the box under the cell. After a disconnect: reconnect, run Cell 1 and Cell 2 again.
 
@@ -175,14 +187,22 @@ drive.mount('/content/drive')
 os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")
 from school.chat import main
 main(["--out", "/content/drive/MyDrive/ai-child/runs", "--data", "/content/drive/MyDrive/ai-child/data",
-      "--hf-repo", "YOUR_HF_USERNAME/ai-child-progress", "--temperature", "0.5"])
+      "--hf-repo", "iajitpanday/ai-child-progress", "--temperature", "0.5"])
 ```
 Same questions as on Kaggle (`/say`, `/feel`, `/wrong`, `/word`, `/moral`, `/learned`, `/quit`).
 
 ---------------------------------------------------------------------------
 
-# Check / create the backup repo (run once; fixes most backup errors)
-Shows your exact Hugging Face username and token type, and creates the private backup repo. Use the repo name it prints as `HF_REPO`. It never prints the token.
+# Cell 5: why is a subject small? (diagnose downloads)
+```python
+%cd /kaggle/working/school_repo
+from school.diagnose import main
+main(0, "mind")
+```
+(`0` = first stage, `"mind"` = the subject.) `FAILED` lines name the error (for example a rate limit): wait a few minutes and re-run Cell 2. `EMPTY` means the page does not exist.
+
+# Cell 6: check the backup repo (any time; fixes most backup errors)
+Shows your exact Hugging Face username, token type and the files in the backup, and creates the private repo if it is missing. It never prints the token. After about 10 minutes of training you should see `latest.pt` and `state.json` in the list.
 ```python
 import os
 from kaggle_secrets import UserSecretsClient
@@ -197,6 +217,7 @@ print("Token role:", me.get("auth", {}).get("accessToken", {}).get("role"))
 repo = me["name"] + "/ai-child-progress"
 api.create_repo(repo, private=True, exist_ok=True)
 print("OK, private repo ready:", repo)
+print("Backup files:", api.list_repo_files(repo))
 ```
 (Colab: replace the first two lines with `from google.colab import userdata` and `os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")`.)
 
@@ -211,7 +232,7 @@ exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgme
 
 # Emotion score stuck at 17% (guessing)
 `emotion=17%` for many exams means the model is not learning to link a sentence to its feeling (it answers "joy" for everything, the most common feeling). Words and other subjects can still be fine. This is a hard task for a very small model. What helps, in order:
-1. Give it more time: add `"--patience", "30"` to the list in Cell 2 (the default stops after 8 exams without improvement).
+1. Give it more time: `"--patience", "30"` (already in Cell 2; the default would stop after 8 exams without improvement). Raise it further, e.g. 60, for a long run.
 2. The latest code weights the feeling word more in the training loss (`--label-weight`, default 8).
 3. A bigger model (`"--size", "base"`, chosen only when a run is first created) has more room to learn it.
 If it is still at 17% after a long run, answer `y` to move on: the rest of the school continues, and `/feel` in the chat will stay a guess.
@@ -225,14 +246,6 @@ Appears when the exams stop improving (training longer would only memorise). It 
 - **`y`** (usually right): continue with the best version. Later stages re-test earlier ones.
 - **`n`**: stop. Add material in `content/<grade>/` (PDFs, links) or ease the marks (`"--pass-scale", "0.9"`), then run Cell 2 again.
 
-# Why is a subject small? (diagnose downloads)
-```python
-%cd /kaggle/working/school_repo
-from school.diagnose import main
-main(0, "mind")
-```
-(`0` = first stage, `"mind"` = the subject.) `FAILED` lines name the error (for example a rate limit): wait a few minutes and re-run Cell 2. `EMPTY` means the page does not exist.
-
 ---------------------------------------------------------------------------
 
 # Troubleshooting
@@ -240,7 +253,7 @@ main(0, "mind")
 |---|---|
 | `No Hugging Face token ... HF_TOKEN` | The secret is missing or not switched on for this notebook (Kaggle: Add-ons -> Secrets; Colab: key icon -> Notebook access). |
 | `Hugging Face did not accept the token` | Wrong/expired token or no WRITE access. Create a new **Write** token and update the secret. |
-| `! Backup failed (... 403 Forbidden: You don't have the rights to create a model under the namespace ...)` | **Your progress is NOT being saved while this shows. Do not stop the session until it is fixed.** Cause: the repo name does not match your account, or the token cannot create repos. Check: (1) `HF_REPO` is exactly `<your Hugging Face username>/ai-child-progress` (not the placeholder `YOUR_HF_USERNAME`; your username is in the address of your profile page, huggingface.co/<username>); (2) the token has **Write** access; (3) safest: create the repo yourself at huggingface.co/new (type *Model*, visibility *Private*, name `ai-child-progress`), then run Cell 2 again. Training that is still running is fine: after fixing, the next run restores your local progress and the backup works from then on. |
+| `! Backup failed (... 403 Forbidden: You don't have the rights to create a model under the namespace ...)` | **Your progress is NOT being saved while this shows. Do not stop the session until it is fixed.** Cause: the repo name does not match your account, or the token cannot create repos. Check: (1) `HF_REPO` is exactly `<your Hugging Face username>/ai-child-progress` (not the placeholder `iajitpanday`; your username is in the address of your profile page, huggingface.co/<username>); (2) the token has **Write** access; (3) safest: create the repo yourself at huggingface.co/new (type *Model*, visibility *Private*, name `ai-child-progress`), then run Cell 2 again. Training that is still running is fine: after fixing, the next run restores your local progress and the backup works from then on. |
 | `! Backup failed (...)` (other errors) | Network trouble. Training continues and retries. If it never succeeds, check the token and Internet = On. |
 | `Backup NOT updated: the backup is further along ...` | This run is behind the backup (for example you started fresh by mistake). Nothing was overwritten. Restart the session and run Cell 2: it restores the backup. |
 | `Starting fresh` in a session where you expected progress | Check that Cell 2 shows `Backup: restored ...`. If it says `nothing saved there yet`, the repo name differs from the one you trained with. |
@@ -258,13 +271,16 @@ main(0, "mind")
 
 ---------------------------------------------------------------------------
 
-# Clean the old model (start over from nothing)
+# Cell 7: start over from nothing
 
 **This deletes all progress.** Because progress is backed up, you must clear **both** the working folder **and** the backup, otherwise the next run restores the old model.
 
 1. **Run -> Restart session**, then run Cell 1.
-2. Clear the working folder, in a cell: `!rm -rf /kaggle/working/runs/school` (Colab: `!rm -rf /content/drive/MyDrive/ai-child/runs`).
-3. Clear the backup. Easiest: use a **new repo name** in Cell 2, for example `YOUR_HF_USERNAME/ai-child-progress-2` (the old repo stays as a keepsake). Or on huggingface.co open the repo -> Files -> delete `state.json`, `latest.pt` and the other `.pt` files.
+2. Clear the working folder with this cell (Colab: `!rm -rf /content/drive/MyDrive/ai-child/runs`):
+   ```python
+   !rm -rf /kaggle/working/runs/school
+   ```
+3. Clear the backup. Easiest: use a **new repo name** in Cell 2, for example `HF_REPO = "iajitpanday/ai-child-progress-2"` (the old repo stays as a keepsake; the new one is created automatically). Or on huggingface.co open the repo -> Files -> delete `state.json`, `latest.pt` and the other `.pt` files.
 4. Run Cell 2. It should say `Backup: nothing saved there yet`.
 
 Keep a copy first? The `passed_*.pt` files are snapshots of each passed grade (download them from the backup repo if you want them).
