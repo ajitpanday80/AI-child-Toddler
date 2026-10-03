@@ -36,7 +36,7 @@ What the backup does:
 - You can see the files at `huggingface.co/iajitpanday/ai-child-progress` (it is private; every upload is also a saved version).
 
 What is and is not backed up:
-- **Backed up:** the model, optimizer and progress (`latest.pt`, `state.json`), the best version of the current stage, and a snapshot of every passed stage (`passed_*.pt`). About 20-100 MB in total.
+- **Backed up:** the model, optimizer and progress (`latest.pt`, `state.json`), the best version of the current stage, and a snapshot of every passed stage (`passed_*.pt`). About 150 MB in total once a few stages are passed (the first upload of each file is the slowest; later uploads send only what changed).
 - **Not backed up:** the downloaded lessons (they are public data) and your own `content/` files (keep those in a Kaggle Dataset or your Drive). A new session therefore downloads the lessons again, which takes a few minutes at the start of Cell 2. If Wikipedia or Hugging Face rate-limits the download (`! ... could not be downloaded`), answer `n`, wait a few minutes and run Cell 2 again.
 - Your progress is restored after a session ends, but a part that is *in the middle of a lesson* resumes from the last backup (at most about 10 minutes of work is repeated).
 
