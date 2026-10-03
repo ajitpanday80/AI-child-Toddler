@@ -81,7 +81,8 @@ class HubBackend:
 
     def upload(self, src, message):
         api = self.hf.HfApi(token=self.token)
-        api.create_repo(self.repo, private=True, exist_ok=True)
+        if not api.repo_exists(self.repo):          # only create it when missing (tokens limited to one repo may not be allowed to create)
+            api.create_repo(self.repo, private=True, exist_ok=True)
         api.upload_folder(folder_path=src, repo_id=self.repo, allow_patterns=PATTERNS, commit_message=message)
 
 
@@ -116,7 +117,10 @@ class Syncer:
             self.last = time.time()
         except Exception as e:                      # never let a backup problem stop the training
             if not self.warned:
-                self.log(f"! Backup failed ({type(e).__name__}: {str(e)[:120]}). Training continues; it will retry.")
+                why = getattr(e, "server_message", None) or " ".join(str(e).split())
+                self.log(f"! Backup failed ({type(e).__name__}: {why[-300:]}). Training continues; it will retry.\n"
+                         f"  Check that HF_REPO is exactly <your Hugging Face username>/<repo>, and that the token has WRITE access "
+                         f"(or create the private repo yourself on huggingface.co).")
             self.warned = True
 
 

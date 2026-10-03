@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import random
+import re
 import time
 
 import torch
@@ -78,14 +79,30 @@ class StageData:
         return corpus[start: start + T + 1]
 
 
-def make_batch(data, stage_idx, rng, bs, T, review_frac, dev="cpu"):
-    rows = []
+ANSWER = re.compile(r"(?<=Emotion:)[^\n]*|(?<=Is it wrong\?)[^\n]*")     # the one word a labelled example is really about
+
+
+def make_batch(data, stage_idx, rng, bs, T, review_frac, dev="cpu", label_weight=1.0):
+    """Returns inputs, targets and a per-character loss weight. The answer word of a labelled example (the feeling, yes/no)
+    counts `label_weight` times more than ordinary text, otherwise it is drowned out by the many characters around it."""
+    rows, weights = [], []
     for _ in range(bs):
         k = rng.randrange(stage_idx) if stage_idx > 0 and rng.random() < review_frac else stage_idx   # revise older stages
         w = data[k].window(rng, T)
-        rows.append(exams.encode(w + "\n" * (T + 1 - len(w))))
-    x = torch.tensor(rows, device=dev)
-    return x[:, :-1], x[:, 1:]
+        w = w + "\n" * (T + 1 - len(w))
+        wt = [1.0] * len(w)
+        for m in ANSWER.finditer(w):
+            for j in range(m.start(), min(m.end() + 1, len(w))):
+                wt[j] = label_weight
+        rows.append(exams.encode(w))
+        weights.append(wt)
+    x, wt = torch.tensor(rows, device=dev), torch.tensor(weights, device=dev)
+    return x[:, :-1], x[:, 1:], wt[:, 1:]
+
+
+def weighted_loss(logits, y, wt):
+    ce = F.cross_entropy(logits.float().reshape(-1, logits.size(-1)), y.reshape(-1), reduction="none")
+    return (ce * wt.reshape(-1)).sum() / wt.sum()
 
 
 def exam_card(model, sd):
@@ -235,11 +252,11 @@ def run(a, ask=input):
                 t0 = time.time()
                 model.train()
                 for _ in range(steps):
-                    x, y = make_batch(ds, i, rng, a.batch, model.c.block_size, a.review_frac, dev)
+                    x, y, wt = make_batch(ds, i, rng, a.batch, model.c.block_size, a.review_frac, dev, a.label_weight)
                     for g in opt.param_groups:
                         g["lr"] = a.lr * min(1.0, (state["step"] + 1) / 100)       # short warm-up after every (re)start
                     with torch.autocast(dev, dtype=torch.float16, enabled=amp):
-                        loss = F.cross_entropy(model(x).float().reshape(-1, 128), y.reshape(-1))
+                        loss = weighted_loss(model(x), y, wt)
                     opt.zero_grad()
                     scaler.scale(loss).backward()
                     scaler.unscale_(opt)
@@ -324,6 +341,7 @@ def main(argv=None, ask=input):
     ap.add_argument("--device", default="auto")
     ap.add_argument("--steps", type=int, default=400, help="training steps between exams")
     ap.add_argument("--epochs", type=float, default=2.0, help="passes over a stage's lessons between exams (small lessons => fewer steps, avoids memorising)")
+    ap.add_argument("--label-weight", type=float, default=8.0, help="loss weight of the answer word in feeling / right-or-wrong examples")
     ap.add_argument("--patience", type=int, default=8, help="exams without improvement before asking whether to move on anyway")
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--lr", type=float, default=6e-4)

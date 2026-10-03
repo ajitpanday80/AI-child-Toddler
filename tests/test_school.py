@@ -231,3 +231,21 @@ def test_emotion_examples_too_long_for_the_window_are_dropped(monkeypatch, tmp_p
     monkeypatch.setattr(data, "hf_rows", lambda *a, **k: rows)
     docs = data.load_source(Source("emotion", 2), str(tmp_path))
     assert len(docs) == 1 and docs[0].text.startswith("Feeling: i feel fine")
+
+
+def test_answer_word_of_labelled_examples_gets_extra_loss_weight():
+    rows = "Feeling: i am so happy today\nEmotion: joy\n\nSituation: he took her toy\nIs it wrong? yes\n\nplain story text here"
+    class D:
+        subjects = {"x": (rows, [])}
+        def window(self, rng, T):
+            return rows[: T + 1]
+    x, y, wt = train.make_batch([D()], 0, random.Random(0), 1, len(rows) - 1, 0.0, "cpu", 8.0)
+    w = wt[0].tolist()
+    target = "".join(chr(int(c)) for c in y[0])
+    j = target.index("joy")
+    assert all(w[j + k] == 8.0 for k in range(3)) and w[0] == 1.0 and w[-1] == 1.0     # " joy" weighted, ordinary text not
+    k = target.index("yes")
+    assert w[k] == 8.0
+
+
+import random

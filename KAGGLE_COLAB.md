@@ -190,6 +190,13 @@ exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgme
 - `loss` is the error on text it is *studying*; `bpc` is the error on text it has *never seen* (lower is better, 2-3 is good). **If `loss` is near 0 but `bpc` stays high or rises, the model is memorising** and cannot pass; training longer makes it worse.
 - Few steps per exam when the lessons are small, and stronger regularisation, limit memorising.
 
+# Emotion score stuck at 17% (guessing)
+`emotion=17%` for many exams means the model is not learning to link a sentence to its feeling (it answers "joy" for everything, the most common feeling). Words and other subjects can still be fine. This is a hard task for a very small model. What helps, in order:
+1. Give it more time: add `"--patience", "30"` to the list in Cell 2 (the default stops after 8 exams without improvement).
+2. The latest code weights the feeling word more in the training loss (`--label-weight`, default 8).
+3. A bigger model (`"--size", "base"`, chosen only when a run is first created) has more room to learn it.
+If it is still at 17% after a long run, answer `y` to move on: the rest of the school continues, and `/feel` in the chat will stay a guess.
+
 # The "Move on anyway?" question
 ```
 Values: no improvement for 8 exams (best so far: ...)
@@ -214,7 +221,8 @@ main(0, "mind")
 |---|---|
 | `No Hugging Face token ... HF_TOKEN` | The secret is missing or not switched on for this notebook (Kaggle: Add-ons -> Secrets; Colab: key icon -> Notebook access). |
 | `Hugging Face did not accept the token` | Wrong/expired token or no WRITE access. Create a new **Write** token and update the secret. |
-| `! Backup failed (...)` | Network trouble. Training continues and retries. If it never succeeds, check the token and Internet = On. |
+| `! Backup failed (... 403 Forbidden: You don't have the rights to create a model under the namespace ...)` | **Your progress is NOT being saved while this shows. Do not stop the session until it is fixed.** Cause: the repo name does not match your account, or the token cannot create repos. Check: (1) `HF_REPO` is exactly `<your Hugging Face username>/ai-child-progress` (not the placeholder `YOUR_HF_USERNAME`; your username is in the address of your profile page, huggingface.co/<username>); (2) the token has **Write** access; (3) safest: create the repo yourself at huggingface.co/new (type *Model*, visibility *Private*, name `ai-child-progress`), then run Cell 2 again. Training that is still running is fine: after fixing, the next run restores your local progress and the backup works from then on. |
+| `! Backup failed (...)` (other errors) | Network trouble. Training continues and retries. If it never succeeds, check the token and Internet = On. |
 | `Backup NOT updated: the backup is further along ...` | This run is behind the backup (for example you started fresh by mistake). Nothing was overwritten. Restart the session and run Cell 2: it restores the backup. |
 | `Starting fresh` in a session where you expected progress | Check that Cell 2 shows `Backup: restored ...`. If it says `nothing saved there yet`, the repo name differs from the one you trained with. |
 | Clone asks `Username for 'https://github.com'` | The repo is private. Make it public (GitHub -> Settings -> General -> Change visibility). |
