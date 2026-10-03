@@ -181,6 +181,25 @@ Same questions as on Kaggle (`/say`, `/feel`, `/wrong`, `/word`, `/moral`, `/lea
 
 ---------------------------------------------------------------------------
 
+# Check / create the backup repo (run once; fixes most backup errors)
+Shows your exact Hugging Face username and token type, and creates the private backup repo. Use the repo name it prints as `HF_REPO`. It never prints the token.
+```python
+import os
+from kaggle_secrets import UserSecretsClient
+os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
+
+from huggingface_hub import HfApi
+api = HfApi(token=os.environ["HF_TOKEN"])
+me = api.whoami()
+print("Your Hugging Face username:", me["name"])
+print("Token role:", me.get("auth", {}).get("accessToken", {}).get("role"))
+
+repo = me["name"] + "/ai-child-progress"
+api.create_repo(repo, private=True, exist_ok=True)
+print("OK, private repo ready:", repo)
+```
+(Colab: replace the first two lines with `from google.colab import userdata` and `os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")`.)
+
 # How to read the exam line
 ```
 exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgment=57% moral=27% bpc=3.1 | need avg>=42% judgment>=54%
