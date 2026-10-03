@@ -283,3 +283,28 @@ def test_user_story_file_feeds_values_and_the_moral_exam(tmp_path):
     from school.exams import moral_paper
     held = [d for d in morals if d.is_exam()]
     assert held and all(len(c) == 4 for _, c in moral_paper(held))           # the moral exam can be built from your stories
+
+
+def test_plain_fables_with_one_line_morals_are_parsed():
+    from school.data import parse_plain_fables
+    story = ("A Fox saw some Grapes hanging high on a vine and tried again and again to reach them, but at last he gave up and "
+             "walked away with his nose in the air, saying that they were surely sour anyway. ")
+    long_last = "And so the story simply carries on for a while longer, with many more details about the vineyard and the weather that day, " * 2
+    text = ("Aesop's Fables\n\n\nSome introduction text.\n\nIt is only the book title and must not become a fable.\n\n\n"
+            f"The Fox and the Grapes\n\n\n{story}\n\nIt is easy to despise what you cannot get.\n\n\n"
+            f"The Plain Story\n\n\n{story}\n\n{long_last}\n\n\n")
+    docs = parse_plain_fables(text)
+    assert [d.moral for d in docs] == ["It is easy to despise what you cannot get."]          # book title and the moral-less story are skipped
+    assert docs[0].key == "fable:THE FOX AND THE GRAPES" and docs[0].subject == "values"       # same key as the caps-title edition: same split
+
+
+def test_plain_fables_source_builds_a_moral_exam(tmp_path):
+    from school.stages import Stage
+    story = "A Fox saw some Grapes hanging high on a vine and tried again and again to reach them but could not. " * 3
+    names = [f"The {a} and the {b}" for a in ("Fox", "Dog", "Cat", "Hen", "Cow", "Pig", "Owl", "Bee") for b in ("Crow", "Wolf", "Lamb", "Mule", "Frog", "Hare", "Toad")]
+    book = "\n\n\n".join(f"{n}\n\n\n{story}\n\nKeep on trying and you will win in the end, said the {n.split()[1]}." for n in names)
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "pg9999.txt").write_text("*** START OF THE PROJECT GUTENBERG EBOOK X ***\n" + book + "\n*** END OF THE PROJECT GUTENBERG EBOOK X ***")
+    st = Stage("T", "t", "t", [Source("gutenberg", 9999, subject="values", plain_fables=True)])
+    sd = train.StageData(st, str(tmp_path / "d"), str(tmp_path / "c"))
+    assert "moral" in sd.papers and sd.counts["values"][0] > 30

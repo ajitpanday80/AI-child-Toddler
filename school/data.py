@@ -46,6 +46,7 @@ class Source:
     subject: str = "language"
     verse: bool = False                # keep line breaks (rhymes)
     fables: bool = False               # parse "TITLE / story / _moral_" structure
+    plain_fables: bool = False         # parse "Title / story / one-line moral" (Jacobs' Aesop)
 
 
 # ---------------------------------------------------------------- low-level helpers
@@ -153,6 +154,27 @@ def wiki_cached(cache_dir: str, lang: str, title: str) -> bool:
     return False
 
 
+FABLE_TITLE = re.compile(r"(?m)^([A-Z][A-Za-z,'\u2019 -]{3,60})\n\n\n(.+?)(?=\n\n\n[A-Z][A-Za-z,'\u2019 -]{3,60}\n\n\n|\Z)", re.S)
+
+
+def parse_plain_fables(t: str) -> List[Doc]:
+    """Fables printed as 'Title', two blank lines, the story, and (often) a one-sentence moral as the last paragraph.
+    Only fables whose last paragraph looks like a moral (one short sentence) are kept; the rest are skipped, not guessed."""
+    docs = []
+    for m in FABLE_TITLE.finditer(t.replace("\r", "")):
+        title, body = m.group(1).strip(), m.group(2).strip()
+        if "fables" in title.lower():                 # the book's own title page, not a fable
+            continue
+        paras = [" ".join(p.split()) for p in re.split(r"\n\s*\n", body) if p.strip()]
+        if len(paras) < 2:
+            continue
+        moral, story = paras[-1].strip(" _\"'"), " ".join(paras[:-1])
+        one_sentence = len(re.findall(r"[.!?](?:\s|$)", moral)) <= 1 and moral[-1:] in ".!?"
+        if 15 <= len(moral) <= 150 and one_sentence and len(story) >= 150 and not story.rstrip().endswith(("?", ",")):
+            docs.append(Doc(f"{title}\n\n{story}\n\nMoral: {moral}", "fable:" + title.upper(), "values", story, moral))
+    return docs
+
+
 def _wiki_page(lang: str, title: str, cache_dir: str) -> str:
     def fetch(lg):
         url = (f"https://{lg}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles="
@@ -202,7 +224,8 @@ def load_source(src: Source, cache_dir: str = "data") -> List[Doc]:
         i = src.ref
         raw = _cached(cache_dir, f"pg{i}.txt", lambda: _download(f"https://www.gutenberg.org/cache/epub/{i}/pg{i}.txt"))
         text = to_ascii(strip_gutenberg(raw))
-        docs = parse_fables(text) if src.fables else [Doc(p, p) for p in paragraphs(text, src.verse)]
+        docs = (parse_fables(text) if src.fables else parse_plain_fables(text) if src.plain_fables
+                else [Doc(p, p) for p in paragraphs(text, src.verse)])
     elif src.kind == "tinystories":
         start, n = src.ref
         url = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStories-valid.txt"

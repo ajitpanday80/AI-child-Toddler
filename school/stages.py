@@ -35,7 +35,8 @@ class Stage:
 
 
 BOOKS = {19994: "Aesop for Children (fables with morals)", 18442: "Fifty Famous Stories Retold", 10607: "The Real Mother Goose (rhymes)",
-         39784: "Mother Goose's Nursery Rhymes", 14640: "McGuffey's First Reader", 14668: "McGuffey's Second Reader",
+         39784: "Mother Goose's Nursery Rhymes", 28: "The Fables of Aesop (Jacobs; fables with morals)",
+         62514: "Jataka Tales (Babbitt)", 7518: "More Jataka Tales (Babbitt)", 14640: "McGuffey's First Reader", 14668: "McGuffey's Second Reader",
          14766: "McGuffey's Third Reader", 14880: "McGuffey's Fourth Reader", 15040: "McGuffey's Fifth Reader", 16751: "McGuffey's Sixth Reader"}
 MCG = {1: 14640, 2: 14668, 3: 14766, 4: 14880, 5: 15040, 6: 16751}   # McGuffey's graded readers (Project Gutenberg)
 
@@ -76,6 +77,7 @@ STAGES = [
 
     Stage("Grade 2", "grade2", "stories, multiplication, water & weather, community", [
         Source("gutenberg", MCG[2]), Source("emotion", 3500),
+        Source("gutenberg", 28, subject="values", plain_fables=True),          # ~65 more fables WITH morals (feeds the moral exam)
         wiki("math", "Multiplication|Division|Place value|Odd number|Even number|Geometry|Line|Angle|Perimeter|Area|Time|Money"),
         wiki("science", "Water cycle|Weather|Rain|Thunderstorm|Rainbow|Volcano|Earthquake|Soil|Rock|Fossil|Plant|Seed|Photosynthesis|Pollination|Food chain|Habitat"),
         wiki("history", "Ancient Egypt|Pyramid|Stone Age|Dinosaur|Explorer|Christopher Columbus|Wheel|Writing|Alphabet|Paper"),
@@ -86,6 +88,7 @@ STAGES = [
 
     Stage("Grade 3", "grade3", "chapter reading, fractions, forces, ancient history, rights", [
         Source("gutenberg", MCG[3]), Source("emotion", 4000),
+        Source("gutenberg", 62514, subject="values"), Source("gutenberg", 7518, subject="values"),   # Jataka tales: kindness, honesty, courage
         wiki("math", "Fraction|Decimal|Multiplication|Division|Perimeter|Area|Triangle|Rectangle|Polygon|Symmetry|Graph|Probability"),
         wiki("science", "Force|Gravity|Friction|Energy|Motion|Simple machine|Lever|Electricity|Magnet|Light|Sound|Atom|Ecosystem|Food chain|Adaptation"),
         wiki("history", "Ancient Greece|Ancient Rome|Indus Valley Civilisation|Mesopotamia|Ancient China|Silk Road|Middle Ages|Renaissance|Mahatma Gandhi|Abraham Lincoln"),

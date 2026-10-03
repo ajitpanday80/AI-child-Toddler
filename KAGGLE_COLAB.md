@@ -222,6 +222,12 @@ print("Backup files:", api.list_repo_files(repo))
 ```
 (Colab: replace the first two lines with `from google.colab import userdata` and `os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")`.)
 
+# More moral stories (built in)
+- **Grade 2** now also studies Jacobs' *Fables of Aesop* (about 65 more fables, each with its one-line moral), so the line `moral=..%` appears in the Grade 2 exam. It tests unseen fables: pick the true moral out of 4 (guessing = 25%). With only about 27 questions the score moves a lot from exam to exam; it is shown for information and does not gate promotion.
+- **Grade 3** now also studies the *Jataka Tales* (Babbitt), Indian animal stories about kindness, honesty and courage.
+- The Panchatantra is not on Project Gutenberg. If you get a copy, add it as text or PDF with a `Moral:` line after each story (see `content/README.md`).
+- After pulling this update: **Run -> Restart session**, Cell 1, then Cell 2. Your progress is kept.
+
 # How to read the exam line
 ```
 exam 12 | step 2400 | loss 1.9 | 15s | words[values=58% mind=41%] avg=49% judgment=57% moral=27% bpc=3.1 | need avg>=42% judgment>=54%
