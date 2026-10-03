@@ -249,3 +249,37 @@ def test_answer_word_of_labelled_examples_gets_extra_loss_weight():
 
 
 import random
+
+
+STORY = ("Once a crow was very thirsty. He found a jug with a little water at the bottom, but his beak could not reach it. "
+         "He dropped pebbles into the jug one by one until the water rose, and then he drank and flew away happily. ")
+
+
+def test_user_stories_with_morals_are_parsed(tmp_path):
+    from school.data import parse_user_stories
+    text = (f"The Thirsty Crow\n\n{STORY}\n\nMoral: Where there is a will, there is a way.\n\n"
+            f"The Lion and the Mouse\n\n{STORY}x\n\nThe moral of the story is that even the small can help the great.\n\n"
+            f"{STORY}y Lesson - Be patient and think before you act.\n\nA plain paragraph about the weather today that has no moral at all.")
+    docs, rest = parse_user_stories(text)
+    assert [d.moral for d in docs[:2]] == ["Where there is a will, there is a way.", "that even the small can help the great."]
+    assert docs[0].text.startswith("The Thirsty Crow\n\nOnce a crow") and docs[0].text.endswith("Moral: Where there is a will, there is a way.")
+    assert docs[0].subject == "values" and docs[0].story.startswith("Once a crow") and "Moral" not in docs[0].story
+    assert "plain paragraph" in rest and "Thirsty Crow" not in rest        # stories are not studied twice
+
+
+def test_short_or_missing_morals_are_ordinary_text():
+    from school.data import parse_user_stories
+    docs, rest = parse_user_stories("A tiny bit of text.\n\nMoral: Be kind.\n\nMore text follows here that is plain.")
+    assert docs == [] and "tiny bit" in rest
+
+
+def test_user_story_file_feeds_values_and_the_moral_exam(tmp_path):
+    (tmp_path / "values").mkdir()
+    body = "\n\n".join(f"Story {i}\n\n{STORY} Variation {i} of the tale.\n\nMoral: Lesson number {i} is to keep trying." for i in range(40))
+    (tmp_path / "values" / "tales.txt").write_text(body)
+    docs = load_user_content(str(tmp_path), "values", str(tmp_path / "cache"), lambda *_: None)
+    morals = [d for d in docs if d.moral]
+    assert len(morals) == 40 and all(d.subject == "values" for d in morals)
+    from school.exams import moral_paper
+    held = [d for d in morals if d.is_exam()]
+    assert held and all(len(c) == 4 for _, c in moral_paper(held))           # the moral exam can be built from your stories

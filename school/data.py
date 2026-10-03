@@ -295,6 +295,36 @@ def fetch_url_text(url: str, cache_dir: str) -> str:
     return open(path).read()
 
 
+MORAL_LINE = re.compile(
+    r"(?im)^[ \t]*(?:"
+    r"(?:the[ \t]+)?(?:moral|lesson)(?:[ \t]+of[ \t]+(?:the|this)[ \t]+(?:story|fable|tale))?[ \t]*(?:is)?[ \t]*[:\-]+"
+    r"|(?:the[ \t]+)?(?:moral|lesson)[ \t]+of[ \t]+(?:the|this)[ \t]+(?:story|fable|tale)[ \t]+is"
+    r")[ \t]*(\S[^\n]*(?:\n(?![ \t]*\n)[^\n]*)*)")
+
+
+def parse_user_stories(text: str):
+    """Find 'story ... Moral: <lesson>' in your own files. Accepted lead-ins (any capitalisation):
+    'Moral: ...', 'Lesson - ...', 'The moral of the story is ...'. The lesson runs to the next blank line.
+    Returns (story+moral documents for the Values lessons and the moral exam, the remaining ordinary text)."""
+    docs, rest, pos = [], [], 0
+    for m in MORAL_LINE.finditer(text):
+        raw, moral = text[pos:m.start()], " ".join(m.group(1).split())[:300].strip(" _\"'")
+        story = " ".join(raw.split())
+        lines = [l.strip() for l in raw.strip().split("\n") if l.strip()]
+        title = lines[0] if lines and len(lines[0]) <= 70 and lines[0][-1] not in ".!?\"'" else ""
+        if title and story.startswith(title):
+            story = story[len(title):].strip()
+        story = story[-1800:]
+        if len(story) >= 150 and len(moral) >= 8:
+            body = f"{title}\n\n{story}" if title else story
+            docs.append(Doc(f"{body}\n\nMoral: {moral}", "usermoral:" + hashlib.md5((story + "|" + moral).encode()).hexdigest(), "values", story, moral))
+        else:
+            rest.append(text[pos:m.end()])          # too short to be a story: keep it as ordinary reading
+        pos = m.end()
+    rest.append(text[pos:])
+    return docs, "\n\n".join(rest)
+
+
 def load_user_content(content_dir: str, folder: str, cache_dir: str = "data", log=print) -> List[Doc]:
     root = os.path.join(content_dir, folder)
     docs = []
@@ -323,5 +353,6 @@ def load_user_content(content_dir: str, folder: str, cache_dir: str = "data", lo
             except Exception as e:
                 log(f"  ! skipped {path}: {e}")
             for t in texts:
-                docs += [Doc(p, p, subject) for p in paragraphs(to_ascii(t))]
+                stories, rest = parse_user_stories(to_ascii(t))        # 'story ... Moral: ...' become story->moral lessons
+                docs += stories + [Doc(p, p, subject) for p in paragraphs(rest)]
     return docs

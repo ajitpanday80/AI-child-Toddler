@@ -126,6 +126,7 @@ It first prints **what it has learned so far** (stages passed with scores, the e
 Notes: it is a small model that only continues text; it was never taught to answer questions, so "what is a moon?" gets a story-like ramble. Ask about what it was taught (see the report); for later stages it can only guess, and `/feel` / `/wrong` say so. Percentages near 50% (2 choices) or 17% (6 choices) mean a guess. Lower `--temperature` (0.3) makes it repeat its lessons more faithfully; held-out lessons (20% of every lesson is kept for exams) it has never seen. To talk to the model as it was when it passed a stage, add `"--ckpt", "/kaggle/working/runs/school/passed_0_Values.pt"`.
 
 ## Your own material (PDFs, text, links)
+Stories with morals (Panchatantra, fables ...): end each story with a line `Moral: ...` (or `Lesson - ...` / `The moral of the story is ...`); see `content/README.md`. They become story-to-moral lessons and feed the moral exam (`moral=` appears for the stage whose folder holds them).
 1. On your computer make a folder named `content` with `grade1/`, `grade2/` ... inside (see `content/README.md`).
 2. Kaggle -> **Datasets -> New Dataset** -> upload that `content` folder.
 3. In the notebook: **Add Input -> your dataset**. Cell 2 finds it automatically (`/kaggle/input/<name>/content`).
