@@ -25,6 +25,7 @@ from . import exams
 from .data import EMOTIONS, wiki_cached
 from .model import GPT, ModelConfig
 from .stages import BOOKS, STAGES
+from .sync import make_syncer
 
 HELP = __doc__.split("Questions")[1].split("It is a small")[0]
 
@@ -155,8 +156,14 @@ def main(argv=None, ask=input):
     ap.add_argument("--ckpt", help="e.g. runs/school/passed_0_Values.pt: the model as it was when it passed that stage")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--temperature", type=float, default=0.8)
+    ap.add_argument("--hf-repo", help="restore the model from this Hugging Face backup first")
+    ap.add_argument("--sync-dir", help="or from this backup folder")
+    ap.add_argument("--sync-minutes", type=float, default=10)
     ap.add_argument("--learned", action="store_true", help="only show what it has learned")
     a = ap.parse_args(argv)
+    sync = make_syncer(a)
+    if sync:
+        sync.pull()
     model, state = load(a.out, a.ckpt, a.device)
     print(learned_report(state, a.data, a.content))
     if a.learned:

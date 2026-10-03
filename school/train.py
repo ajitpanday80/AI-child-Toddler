@@ -17,6 +17,7 @@ from . import exams
 from .data import load_source, load_user_content
 from .model import GPT, ModelConfig
 from .stages import STAGES
+from .sync import make_syncer
 
 PASS_SCALE = 1.0     # --pass-scale: multiplies every pass mark (e.g. 0.9 = 10% easier)
 SIZES = {"tiny": (4, 4, 128), "small": (6, 8, 256), "base": (8, 8, 384)}   # (layers, heads, width)  ~0.9M / 5M / 14M params
@@ -180,11 +181,19 @@ def run(a, ask=input):
     os.makedirs(a.out, exist_ok=True)
     torch.manual_seed(a.seed)
     rng = random.Random(a.seed + state_seed(a))
+    sync = make_syncer(a, log)
+    if sync:
+        sync.pull()                      # restore a backup first (stops with an error if it cannot be read)
     model, opt, state, dev = build(a)
     amp = dev == "cuda"
     scaler = torch.amp.GradScaler(enabled=amp)
     log(f"model: {model.n_params()/1e6:.2f}M parameters on {dev} (own weights, trained from scratch)")
     data, t_part = {}, time.time()
+
+    def save(force=False, why="progress"):
+        save_state(a.out, model, opt, state)
+        if sync:
+            sync.push(force, why)
 
     def ds_upto(i):
         for k in range(i + 1):
@@ -201,14 +210,14 @@ def run(a, ask=input):
             stage = STAGES[i]
             if state["phase"] == "awaiting_approval":
                 if not approve(i, state, ask):
-                    save_state(a.out, model, opt, state)
+                    save(True, "stopped at approval")
                     return log("\nStopped. Run the same command again later and I'll ask you again.")
                 if state["stage"] == len(STAGES):
                     state["phase"] = "graduated"
-                    save_state(a.out, model, opt, state)
+                    save(True, "graduated")
                     break
                 state.update(stage=i + 1, phase="studying", attempt=0)
-                save_state(a.out, model, opt, state)
+                save(True, "moved up a stage")
                 continue
             ds = ds_upto(i)
             log(f"\n=== {stage.name}: {stage.skill} ===")
@@ -218,7 +227,7 @@ def run(a, ask=input):
             while True:
                 if time.time() - t_part >= a.part_minutes * 60:      # part finished -> checkpoint and ask
                     state["parts"] += 1
-                    save_state(a.out, model, opt, state)
+                    save(True, "end of part")
                     log(f"\n--- Part {state['parts']} finished ({a.part_minutes:g} min). Progress saved. ---")
                     if not yes(ask, f"Continue with the next part (still {stage.name})? [y/n] "):
                         return log("Stopped. Run the same command to start the next part.")
@@ -248,9 +257,9 @@ def run(a, ask=input):
                 if ok:
                     state["baselines"][stage.name] = {k: v for k, v in card.items() if k != "bpc"}
                     state["phase"] = "awaiting_approval"
-                    torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
-                    save_state(a.out, model, opt, state)
                     state["best_q"], state["since_best"] = -1.0, 0
+                    torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
+                    save(True, f"{stage.name} passed")
                     break
                 q = quality(card)
                 if q > state["best_q"] + 0.005:
@@ -258,26 +267,29 @@ def run(a, ask=input):
                     torch.save(model.state_dict(), os.path.join(a.out, "best_current_stage.pt"))
                 else:
                     state["since_best"] += 1
-                save_state(a.out, model, opt, state)
+                save()
                 if state["since_best"] >= a.patience:
                     best = os.path.join(a.out, "best_current_stage.pt")
                     if os.path.exists(best):
                         model.load_state_dict(torch.load(best, map_location=dev))          # go back to its best moment
                     state["since_best"] = 0
-                    save_state(a.out, model, opt, state)
+                    save(True, "stuck stage")
                     log(f"\n{stage.name}: no improvement for {a.patience} exams (best so far: {fmt(exam_card(model, ds[i]))}).")
                     log("More training will not help; it needs more or better material (content/%s/) or easier marks (--pass-scale 0.9)." % stage.folder)
                     if i + 1 < len(STAGES) and yes(ask, f"Move on to {STAGES[i + 1].name} anyway, using the best version so far? [y/n] "):
                         state["baselines"][stage.name] = {k: v for k, v in exam_card(model, ds[i]).items() if k != "bpc"}
                         torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
                         state.update(stage=i + 1, phase="studying", attempt=0, best_q=-1.0, since_best=0)
-                        save_state(a.out, model, opt, state)
+                        save(True, "moved on from a stuck stage")
                         break
                     return log("Stopped. Add material or adjust marks, then run the same command again.")
         log("\nAll stages passed. Graduated!")
     except KeyboardInterrupt:
-        save_state(a.out, model, opt, state)
+        save(True, "interrupted")
         log("\nInterrupted. Progress saved; run the same command to resume.")
+    finally:
+        if sync:
+            sync.push(True, "final")
 
 
 def state_seed(a):
@@ -317,6 +329,9 @@ def main(argv=None, ask=input):
     ap.add_argument("--lr", type=float, default=6e-4)
     ap.add_argument("--review-frac", type=float, default=0.25, help="share of study time spent revising earlier stages")
     ap.add_argument("--pass-scale", type=float, default=1.0, help="multiply every pass mark (0.9 = 10%% easier, 1.1 = stricter)")
+    ap.add_argument("--hf-repo", help="back up progress to this PRIVATE Hugging Face repo, e.g. you/ai-child-progress (token in env HF_TOKEN)")
+    ap.add_argument("--sync-dir", help="or back up to this folder (e.g. a mounted Google Drive)")
+    ap.add_argument("--sync-minutes", type=float, default=10, help="how often to refresh the backup")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--status", action="store_true", help="show the report card and exit")
     a = ap.parse_args(argv)

@@ -41,6 +41,9 @@ python -m school.chat                       # see what it learned, then ask it q
 Options: `--part-minutes 60`, `--size tiny|small|base`, `--steps 400` (between exams), `--pass-scale 0.9` (all marks 10% easier), `--out`, `--data`, `--content`.
 **Kaggle / Colab: see [KAGGLE_COLAB.md](KAGGLE_COLAB.md).**
 
+## Progress is backed up
+`--hf-repo you/ai-child-progress` (token in `HF_TOKEN`) backs progress up to a private Hugging Face repo and restores it in a new session, so ending a Kaggle/Colab session loses nothing. `--sync-dir <folder>` does the same to any folder. Details: [KAGGLE_COLAB.md](KAGGLE_COLAB.md).
+
 ## Ask it questions yourself
 `python -m school.chat` first prints **what it has learned so far** (stages passed + scores, the exact topics and books taught, weak subjects,
 what is not taught yet), then lets you type questions: `/say` (continue text), `/feel` (which of 6 feelings), `/wrong` (right or wrong),

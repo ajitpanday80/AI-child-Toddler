@@ -154,3 +154,62 @@ def test_chat_shows_learned_and_answers_every_command(tmp_path, capsys):
     assert "WHAT IT HAS LEARNED SO FAR" in txt and "Values" in txt and "PASSED" in txt and "WEAK" in txt   # mind=30% is flagged
     assert "sadness" in txt and "not wrong" in txt and "park" in txt and "Use:  /word" in txt and "Moral:" in txt and "Unknown command" in txt
     assert "Pre-Nursery" in txt          # the stage it is working on is listed too
+
+
+def _args(tmp, extra=()):
+    return ["--out", str(tmp / "run"), "--data", str(tmp / "d"), "--content", str(tmp / "c"), "--size", "tiny", "--steps", "2", "--batch", "2",
+            "--device", "cpu", *extra]
+
+
+def _school(monkeypatch, cloze_pass=0.0):
+    from school.stages import Stage
+    text = "\n\n".join(f"The {W[i % 7]} sat on the {W[(i * 3) % 7]} number {i} and the {W[(i * 5) % 7]} ran in the park with a {W[(i * 2) % 7]} today." for i in range(400))
+    monkeypatch.setattr(train, "STAGES", [Stage("One", "g1", "t", [Source("text", text)], cloze_pass=cloze_pass),
+                                          Stage("Two", "g2", "t", [Source("text", text)], cloze_pass=cloze_pass)])
+
+
+def test_backup_restores_progress_after_the_working_folder_is_wiped(tmp_path, monkeypatch):
+    """The Kaggle problem: session ends, /kaggle/working is erased. With a backup the next session resumes."""
+    import shutil
+    _school(monkeypatch)
+    bk = tmp_path / "backup"
+    train.main(_args(tmp_path, ["--sync-dir", str(bk)]), ask=lambda p: "n")      # session 1: passes stage One, asked to move on, says no
+    s1 = json.load(open(tmp_path / "run" / "state.json"))
+    assert s1["phase"] == "awaiting_approval" and (bk / "state.json").exists() and (bk / "latest.pt").exists()
+    shutil.rmtree(tmp_path / "run")                                             # session ends: everything local is gone
+    asked = []
+    train.main(_args(tmp_path, ["--sync-dir", str(bk)]), ask=lambda p: (asked.append(p), "n")[1])   # session 2
+    s2 = json.load(open(tmp_path / "run" / "state.json"))
+    assert s2["step"] == s1["step"] and "One" in s2["baselines"] and "Move on to Two" in asked[0]    # resumed, not fresh
+
+
+def test_backup_never_overwrites_a_further_along_backup(tmp_path):
+    from school.sync import DirBackend, Syncer
+    bk = tmp_path / "bk"
+    bk.mkdir()
+    (bk / "state.json").write_text(json.dumps({"step": 5000}))
+    (bk / "latest.pt").write_text("precious")
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "state.json").write_text(json.dumps({"step": 10}))           # a fresh run by mistake
+    (out / "latest.pt").write_text("new")
+    msgs = []
+    Syncer(str(out), DirBackend(str(bk)), 0, msgs.append).push(True)
+    assert (bk / "latest.pt").read_text() == "precious" and any("further along" in m for m in msgs)
+
+
+def test_backup_failure_does_not_stop_training(tmp_path):
+    from school.sync import Syncer
+    class Broken:
+        def remote_step(self): raise ConnectionError("no network")
+        def upload(self, *a): raise ConnectionError("no network")
+    msgs = []
+    Syncer(str(tmp_path), Broken(), 0, msgs.append).push(True)          # must not raise
+    assert any("Backup failed" in m for m in msgs)
+
+
+def test_hub_backend_needs_a_token():
+    import pytest
+    from school.sync import HubBackend
+    with pytest.raises(RuntimeError, match="HF_TOKEN"):
+        HubBackend("me/x", None)
