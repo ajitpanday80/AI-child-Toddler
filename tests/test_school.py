@@ -213,3 +213,21 @@ def test_hub_backend_needs_a_token():
     from school.sync import HubBackend
     with pytest.raises(RuntimeError, match="HF_TOKEN"):
         HubBackend("me/x", None)
+
+
+def test_exam_scoring_survives_texts_longer_than_the_model_window():
+    from school.exams import span_logprob
+    m = tiny()                                                    # block_size 256
+    long_seq = "x" * 700 + " the answer"
+    out = span_logprob(m, [long_seq, "short one"], [len(long_seq) - 10, 3])
+    assert len(out) == 2 and all(o == o for o in out)           # no crash, no NaN
+    p = [("Feeling: " + "word " * 120 + "\nEmotion:", [" joy", " sadness"], 0)]
+    assert 0 <= label_score(m, p) <= 1
+
+
+def test_emotion_examples_too_long_for_the_window_are_dropped(monkeypatch, tmp_path):
+    from school import data
+    rows = [{"text": "i feel fine", "label": 1}, {"text": "i feel " + "very " * 80, "label": 0}]
+    monkeypatch.setattr(data, "hf_rows", lambda *a, **k: rows)
+    docs = data.load_source(Source("emotion", 2), str(tmp_path))
+    assert len(docs) == 1 and docs[0].text.startswith("Feeling: i feel fine")

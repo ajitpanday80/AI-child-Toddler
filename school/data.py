@@ -228,6 +228,8 @@ def load_source(src: Source, cache_dir: str = "data") -> List[Doc]:
     elif src.kind == "emotion":     # tweets labelled with one of 6 emotions
         docs = []
         for r in hf_rows("dair-ai/emotion", "split", "train", src.ref, cache_dir):
+            if len(r["text"]) > 200:                       # prompt + answer must fit in the model's 256-character window
+                continue
             pr, ans = f"Feeling: {r['text']}\nEmotion:", " " + EMOTIONS[r["label"]]
             docs.append(Doc(pr + ans, r["text"], "heart", task="emotion", prompt=pr, answer=ans, choices=[" " + e for e in EMOTIONS]))
     elif src.kind == "ethics":      # short everyday scenarios: is the action wrong?

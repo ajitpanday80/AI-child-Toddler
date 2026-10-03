@@ -33,6 +33,10 @@ def span_logprob(model, seqs: List[str], starts: List[int], mean: bool = False) 
     """log P(seq[start:] | seq[:start]) for each sequence (sum, or mean per character)."""
     model.eval()
     dev = next(model.parameters()).device
+    cap = model.c.block_size + 1                             # the model reads at most block_size characters
+    cut = [max(0, len(q) - cap) for q in seqs]               # too long: drop the oldest context, keep the answer span
+    seqs = [q[c:] for q, c in zip(seqs, cut)]
+    starts = [max(1, st - c) for st, c in zip(starts, cut)]
     out = []
     for b in range(0, len(seqs), 128):                       # batches keep memory small
         chunk, st_ = seqs[b: b + 128], starts[b: b + 128]

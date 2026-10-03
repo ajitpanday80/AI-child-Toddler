@@ -224,6 +224,7 @@ main(0, "mind")
 | `! N of M ... pages could not be downloaded`, or tiny counts like `mind:10` (about 150-200 is normal), or `judgment` missing | Wikipedia / Hugging Face rate-limited the notebook. Finished downloads are kept. Answer `n`, wait a few minutes, run Cell 2 again. Clear an old bad cache with `!rm -rf /kaggle/working/school_repo/data`. |
 | `could not download ...` | Kaggle Internet is Off. Turn it on and re-run. |
 | The question never appears | You ran it with `!python ...`. Use the Python `main([...])` call as in the cells. |
+| `CUDA error: device-side assert triggered` / `index out of bounds` | A bug fixed in the latest code (an exam text longer than the model window). A CUDA error leaves the GPU unusable until you **Run -> Restart session**; then Cell 1 (pulls the fix) and Cell 2 (restores your backup). |
 | Out of memory | Add `"--batch", "16"` to the list in Cell 2, or use `"--size", "tiny"`. |
 | `loss` near 0 but scores low / `bpc` high | Memorising (see above). Pull the latest code and start over (below). |
 | Stuck at a grade for many exams | More material in `content/<grade>/`, or `"--pass-scale", "0.9"`. |
