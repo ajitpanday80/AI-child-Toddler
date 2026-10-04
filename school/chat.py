@@ -64,7 +64,8 @@ def learned_report(state, data_dir="data", content_dir="content"):
         if i > cur:
             break
         passed = st.name in state.get("baselines", {})
-        tag = "PASSED" if passed else "in progress" if i == cur and state.get("phase") != "graduated" else ""
+        tag = ("ACCEPTED without passing" if st.name in state.get("accepted", []) else "PASSED") if passed else (
+            "in progress" if i == cur and state.get("phase") != "graduated" else "")
         lines.append(f"\n{st.name}  -  {st.skill}   [{tag}]")
         if passed:
             b = state["baselines"][st.name]

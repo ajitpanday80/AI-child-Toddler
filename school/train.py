@@ -182,7 +182,7 @@ def status(out):
     if not st:
         return log("No training yet. Start with: python -m school.train")
     for i, s in enumerate(STAGES):
-        mark = "PASSED" if s.name in st["baselines"] else (f"<- now ({st['phase']})" if i == st["stage"] else "")
+        mark = ("ACCEPTED (not passed)" if s.name in st.get("accepted", []) else "PASSED") if s.name in st["baselines"] else (f"<- now ({st['phase']})" if i == st["stage"] else "")
         log(f"{i:>2}. {s.name:<12} {s.skill:<70} {mark}")
     log(f"steps trained: {st['step']}   exams taken: {len(st['history'])}   parts completed: {st['parts']}")
 
@@ -293,14 +293,23 @@ def run(a, ask=input):
                     save(True, "stuck stage")
                     log(f"\n{stage.name}: no improvement for {a.patience} exams (best so far: {fmt(exam_card(model, ds[i]))}).")
                     log("More training will not help; it needs more or better material (content/%s/) or easier marks (--pass-scale 0.9)." % stage.folder)
-                    if i + 1 < len(STAGES) and yes(ask, f"Move on to {STAGES[i + 1].name} anyway, using the best version so far? [y/n] "):
+                    last = i + 1 >= len(STAGES)
+                    question = ("Graduate anyway, using the best version so far? [y/n] " if last
+                                else f"Move on to {STAGES[i + 1].name} anyway, using the best version so far? [y/n] ")
+                    if yes(ask, question):
                         state["baselines"][stage.name] = {k: v for k, v in exam_card(model, ds[i]).items() if k != "bpc"}
+                        state.setdefault("accepted", []).append(stage.name)          # NOT passed: accepted by you (shown in reports)
                         torch.save(model.state_dict(), os.path.join(a.out, f"passed_{i}_{stage.name.replace(' ', '_')}.pt"))
-                        state.update(stage=i + 1, phase="studying", attempt=0, best_q=-1.0, since_best=0)
-                        save(True, "moved on from a stuck stage")
+                        if last:
+                            state.update(stage=len(STAGES), phase="graduated", best_q=-1.0, since_best=0)
+                            save(True, "graduated anyway")
+                        else:
+                            state.update(stage=i + 1, phase="studying", attempt=0, best_q=-1.0, since_best=0)
+                            save(True, "moved on from a stuck stage")
                         break
                     return log("Stopped. Add material or adjust marks, then run the same command again.")
-        log("\nAll stages passed. Graduated!")
+        acc = state.get("accepted", [])
+        log("\nAll stages finished. Graduated!" + (f"  (accepted by you without passing: {', '.join(acc)})" if acc else ""))
     except KeyboardInterrupt:
         save(True, "interrupted")
         log("\nInterrupted. Progress saved; run the same command to resume.")

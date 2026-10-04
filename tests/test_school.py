@@ -308,3 +308,21 @@ def test_plain_fables_source_builds_a_moral_exam(tmp_path):
     st = Stage("T", "t", "t", [Source("gutenberg", 9999, subject="values", plain_fables=True)])
     sd = train.StageData(st, str(tmp_path / "d"), str(tmp_path / "c"))
     assert "moral" in sd.papers and sd.counts["values"][0] > 30
+
+
+def test_last_stage_can_graduate_anyway_and_it_is_recorded(tmp_path, monkeypatch):
+    from school.stages import Stage
+    text = "\n\n".join(f"The {W[i % 7]} sat on the {W[(i * 3) % 7]} number {i} and the {W[(i * 5) % 7]} ran in the park with a {W[(i * 2) % 7]} today." for i in range(400))
+    monkeypatch.setattr(train, "STAGES", [Stage("Only", "g1", "t", [Source("text", text)], cloze_pass=1.1)])      # can never pass
+    out, asked = str(tmp_path / "run"), []
+    args = ["--out", out, "--data", str(tmp_path / "d"), "--content", str(tmp_path / "c"), "--size", "tiny", "--steps", "2", "--batch", "2",
+            "--device", "cpu", "--patience", "2", "--part-minutes", "100"]
+    train.main(args, ask=lambda p: (asked.append(p), "y")[1])
+    s = json.load(open(os.path.join(out, "state.json")))
+    assert any("Graduate anyway" in q for q in asked) and s["phase"] == "graduated" and s["stage"] == 1 and s["accepted"] == ["Only"]
+    asked.clear()
+    train.main(args, ask=lambda p: (asked.append(p), "y")[1])                 # run again: nothing left to ask, still graduated
+    assert asked == []
+    from school import chat
+    monkeypatch.setattr(chat, "STAGES", train.STAGES)                        # the report lists the stages of this tiny school
+    assert "ACCEPTED without passing" in chat.learned_report(s, str(tmp_path / "d"), str(tmp_path / "c"))

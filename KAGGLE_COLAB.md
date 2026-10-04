@@ -222,6 +222,13 @@ print("Backup files:", api.list_repo_files(repo))
 ```
 (Colab: replace the first two lines with `from google.colab import userdata` and `os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")`.)
 
+# At the last stage: "Graduate anyway?"
+```
+Grade 6: no improvement for 30 exams (best so far: ...)
+Graduate anyway, using the best version so far? [y/n]
+```
+Same idea as "Move on anyway?", for the final grade. `y` finishes the school with the best version and records which stages were accepted without passing: the report card (`status`) and the chat's learned-so-far report mark them **ACCEPTED (not passed)**, so nothing is hidden. `n` stops; the next run studies again.
+
 # More moral stories (built in)
 - **Grade 2** now also studies Jacobs' *Fables of Aesop* (about 65 more fables, each with its one-line moral), so the line `moral=..%` appears in the Grade 2 exam. It tests unseen fables: pick the true moral out of 4 (guessing = 25%). With only about 27 questions the score moves a lot from exam to exam; it is shown for information and does not gate promotion.
 - **Grade 3** now also studies the *Jataka Tales* (Babbitt), Indian animal stories about kindness, honesty and courage.
